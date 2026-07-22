@@ -28,6 +28,8 @@ p_cosmology = {
     'R0': {
         'SN Ia':  2.3e4 * u.Gpc ** -3 *  u.yr ** -1, #BTS ZTF
         'SN CC': 10.1e4  * u.Gpc ** -3 *   u.yr  ** -1, #BTS ZTF
+        'SN Ibc': 10.1e4  * u.Gpc ** -3 *   u.yr  ** -1, #BTS ZTF
+        'SN II': 10.1e4  * u.Gpc ** -3 *   u.yr  ** -1, #BTS ZTF
         'TDE': 8e-7 * u.Mpc **  -3  * u.yr ** -1, #?  sun et al maybe
         'KN': 59.3 * u.Gpc ** -3 * u.yr ** -1, #BTS ZTF, upper limit
     }

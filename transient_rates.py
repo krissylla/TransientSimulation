@@ -13,7 +13,7 @@ from params import p_cosmology
 
 #Volumetric rates per transient
 
-def R_CC(z, R0=1):
+def R_SFR(z, R0=1):
     '''
     From Madau & Dickinson 2014
     '''
@@ -85,7 +85,7 @@ def R_sGRB_powerlaw(z, R0=1, eta=-2):
 
     return R0 * f_sGRB
 
-def plot_rates(unit='Gpc', print_r0=False):
+def plot_rates(unit='Gpc', print_r0=False, all_kn=False):
     '''
     Prints all rates in this page.
     unit: str, Mpc for rates in Mpc^-3 yr^-1, or Gpc for Gpc^-3 yr^-1
@@ -101,11 +101,13 @@ def plot_rates(unit='Gpc', print_r0=False):
             print(f"R0 {key} = {np.format_float_scientific(R0[key].value)} [{unit}^-3 yr^-1]")
 
     z_range = np.linspace(0, 5, p_cosmology['N_int_steps'])
-    plt.plot(z_range, R_CC(z_range, R0=R0['SN CC'].value), label='CC', c='blue')
+    plt.plot(z_range, R_SFR(z_range, R0=R0['SN Ia'].value), label='SN Ia', c='green')
+    plt.plot(z_range, R_SFR(z_range, R0=R0['SN CC'].value), label='SN CC', c='blue')
     plt.plot(z_range, R_TDE(z_range, R0=R0['TDE'].value), label='TDE', c='orange')
     plt.plot(z_range, R_sGRB_gaus(z_range, R0=R0['KN'].value), label='KN Gaussian', c='purple')
-    plt.plot(z_range, R_sGRB_lognorm(z_range, R0=R0['KN'].value), label='KN log-normal', c='purple', linestyle='dashed')
-    plt.plot(z_range, R_sGRB_powerlaw(z_range, R0=R0['KN'].value), label='KN powerlaw', c='purple', linestyle='dotted')
+    if all_kn:
+        plt.plot(z_range, R_sGRB_lognorm(z_range, R0=R0['KN'].value), label='KN log-normal', c='purple', linestyle='dashed')
+        plt.plot(z_range, R_sGRB_powerlaw(z_range, R0=R0['KN'].value), label='KN powerlaw', c='purple', linestyle='dotted')
 
     plt.yscale('log')
     plt.xlabel('z', fontsize=14)
