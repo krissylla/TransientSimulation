@@ -6,9 +6,8 @@ We need to setop a virtual enviorment with micromamba:
 ```
 micromamba create -n TransientLightcurves numpy
 micromamba activate TransietnLightcurves
-pip install astropy
-pip install matplotlib
-pip install ligo.skymap
+micromamba install pip
+pip install astropy matplotlib ligo.skymap
 ```
 
 Some useful links:
