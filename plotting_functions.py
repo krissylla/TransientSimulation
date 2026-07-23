@@ -198,7 +198,7 @@ def plot_population(population, ra_dec_zoom=None, r=1):
     
     
 
-    
+
     ax.set_title(r'$N_{total} =$ ' + np.format_float_scientific(len(ra), 1) + f" time = {population['time_window'].to(u.d)}  z_max={population['z_max']}")
 
     ax_inset.set_xlabel("")
