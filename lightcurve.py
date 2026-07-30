@@ -94,7 +94,7 @@ def generate_snia_lightcurve(redshift = None, bands = None, p = p_cosmology, N_t
     # update the snia.target.core.Target.model instance.
     snia.update_model(**custom_model) #unpacking is IMPORTANT
     new_snia = snia.from_draw(N_tot, model = custom_model)
-    new_snia.data["z"] = redshift #brute-force changing of lc dataframe.
+    # new_snia.data["z"] = redshift #brute-force changing of lc dataframe.
     # you can use indexing e.g. .data["z"][0] if you have more than one
 
     t0 = new_snia.data["t0"][0] #check why u need 0 again. because of index 0?
@@ -124,11 +124,11 @@ def generate_snia_lightcurve(redshift = None, bands = None, p = p_cosmology, N_t
   
         plt.show()
     
-    snia_models = new_snia #recall you can do .from_draw(size, model ,...) then use .get_lightcurve(index = ...)
+    snia_targets = new_snia #recall you can do .from_draw(size, model ,...) then use .get_lightcurve(index = ...)
 
     if not return_values:
         if return_models:
-            return snia_models
+            return snia_targets
         return None
 
     y_vals = np.column_stack([times] + list(lc))
@@ -147,7 +147,7 @@ def generate_snia_lightcurve(redshift = None, bands = None, p = p_cosmology, N_t
     if not return_models:
         return result_dict
 
-    return snia_models, result_dict
+    return snia_targets, result_dict
 
 def make_population(dict):
     """
@@ -162,7 +162,9 @@ def make_visibility_row(target, bands, limit_mag_dict):
     """
     Has to complement the values from y_vals.
     """
+    redshift = target.data["z"][0]
     row = {}
+    target = generate_snia_lightcurve(redshift = None, bands = bands, p = p_cosmology, N_tot = 1, plot_curve = False, return_values = False, in_mag = True, return_models = True)
     for i, band in enumerate(bands):
         mag_vals = np.asarray(lc[i])   # works for tuple/list/ndarray
         visible = int(np.any(mag_vals < limit_mag_dict[band]["mag"]))
@@ -173,12 +175,12 @@ target_ids = [0]   # add more event IDs later if needed
 rows = []
 
 
-
-def determine_visibility(target, times = None, bands = None):
-    """
+"""
+def determine_visibility(target, times = None, model_data):
+    
     Determine using lightcurve input.
-    You will use bands = valid_bands
-    """
+    You will use all bands available inside the selected target (model)
+    
 
     for target_id in target_ids:
         lc = target.get_lightcurve(
@@ -198,5 +200,5 @@ def determine_visibility(target, times = None, bands = None):
     sn_visibility_dict
 
     return 0
-
+"""
 
