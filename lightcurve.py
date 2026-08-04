@@ -182,6 +182,47 @@ def generate_ordered_parameter_list(redshift=None, x1=None, c=None, t0=None, mag
 
     return [redshift, x1, c, t0, magabs, ra, dec]
 
+def plot_lightcurve(lightcurve_data, times=None, bands=None, in_mag=False):
+
+    fig, ax = plt.subplots(figsize=(6, 4))
+
+    lc_by_band = lightcurve_data["lc_by_band"]
+
+    # Plot all valid bands by default
+    if bands is None:
+        bands = lc_by_band.keys()
+
+    for band in bands:
+
+        if band not in lc_by_band:
+            print(f"Skipping {band}: no light curve available.")
+            continue
+
+        ax.plot(
+            times,
+            lc_by_band[band],
+            label=band,
+            color=limit_mag_dict[band]["color"],
+        )
+
+    if in_mag:
+        for band in bands:
+            if band in limit_mag_dict:
+                ax.axhline(
+                    limit_mag_dict[band]["mag"],
+                    color=limit_mag_dict[band]["color"],
+                    linestyle="--",
+                    label=f"{band} limit",
+                )
+        ax.invert_yaxis()
+
+    ax.set_xlabel("MJD")
+    ax.set_ylabel("Magnitude" if in_mag else "Flux (phot/s/cm²)")
+    ax.legend()
+
+    plt.show()
+
+
 
 def generate_snia_lightcurve(redshift = None, x1 = None, c = None, t0 = None, magabs = None, ra = None, dec = None,
                               bands = None, p = p_cosmology, N_tot = 1, plot_curve = False, return_values = False,
@@ -201,9 +242,10 @@ def generate_snia_lightcurve(redshift = None, x1 = None, c = None, t0 = None, ma
     return_values: Returns y values (flux or mag) as a 2D array, with each layer as different filters
     
     """
-    if redshift < p_cosmology['z_min'] or redshift > 5.0:
-        # we set p_cosmology['z_min'] = 1e-4.
-        raise ValueError("Redshift input out of bounds. Valid range: {} to {}".format(p_cosmology['z_min'], 5.0))
+    if redshift is not None:
+        if redshift < p_cosmology['z_min'] or redshift > 5.0:
+            # we set p_cosmology['z_min'] = 1e-4.
+            raise ValueError("Redshift input out of bounds. Valid range: {} to {}".format(p_cosmology['z_min'], 5.0))
 
     if redshift is None and x1 is None and c is None and t0 is None and magabs is None and ra is None and dec is None and N_tot > 1:
         raise ValueError("If N_tot > 1, at least one parameter must be fixed in order to generate unique targets.")
@@ -238,37 +280,9 @@ def generate_snia_lightcurve(redshift = None, x1 = None, c = None, t0 = None, ma
     # Step 4: Use .get_lightcurve(). Note: this has in_mag = FALSE by default
     print('valid bands are:', valid_bands)
     lc = new_snia.get_lightcurve(band = valid_bands, phase_range = (phase_start, phase_stop), times=times,index=0,zp=25,in_mag=in_mag)
-    if plot_curve:
-        fig, ax = plt.subplots(figsize=(6, 4))
 
-        for i in range(len(valid_bands)):
-            ax.plot(times, lc[i], label=valid_bands[i], color=lsst_colors[i])
+    lc_by_band = {band: np.asarray(lc[i]) for i, band in enumerate(valid_bands)}
 
-        for band, v in limit_mag_dict.items():
-            ax.axhline(v["mag"], color=v["color"], linestyle="--", label=f"{band} limit")
-
-        if in_mag:
-            ax.invert_yaxis()
-        ax.set_xlabel('MJD')
-        ax.set_ylabel('mag')
-        ax.set_title('SNIa z={}, x1={}, c={}, t0={}, magabs={}, radec = [{}, {}]'.format(redshift, x1, c, t0, magabs, ra, dec), fontsize=7)
-        ax.legend(fontsize=8)
-  
-        plt.show()
-    
-    snia_targets = new_snia #recall you can do .from_draw(size, model ,...) then use .get_lightcurve(index = ...)
-
-    if not return_values:
-        if return_models:
-            return snia_targets
-        return None
-
-    y_vals = np.column_stack([times] + list(lc))
-    value_key = "mag" if in_mag else "flux (phot/s/cm^2)"
-    lc_by_band = {
-        band: np.asarray(lc[i])
-        for i, band in enumerate(valid_bands)
-    }
     lightcurves_data = {
         "times": times,
         # "lc": lc,
@@ -277,19 +291,32 @@ def generate_snia_lightcurve(redshift = None, x1 = None, c = None, t0 = None, ma
         # value_key: y_vals,
     }
 
+    if plot_curve:
+        plot_lightcurve(lightcurve_data = lightcurves_data, times = times, bands=valid_bands, in_mag=in_mag)
+    
+    snia_targets = new_snia #recall you can do .from_draw(size, model ,...) then use .get_lightcurve(index = ...)
+
+    if not return_values:
+        if return_models:
+            return snia_targets
+        return None
+
+    # y_vals = np.column_stack([times] + list(lc))
+    # value_key = "mag" if in_mag else "flux (phot/s/cm^2)"
+
     if not return_models:
         return lightcurves_data
 
     return snia_targets, lightcurves_data
 
 
-def make_visibility_row(lc, valid_bands, limit_mag_dict = limit_mag_dict):
+def make_visibility_row(lc_by_band, limit_mag_dict = limit_mag_dict):
     #initialise every band as -1 meaning not available.
     row = {band: -1 for band in limit_mag_dict}
 
-    for band, mag_vals in zip(valid_bands, lc):
+    for band, y_vals in lc_by_band.items():
         row[band] = int(
-            np.any(np.asarray(mag_vals) < limit_mag_dict[band]["mag"])
+            np.any(np.asarray(y_vals) < limit_mag_dict[band]["mag"])
         ) #returns 0 (falls within filter wavelength range but too faint), 1 if visible
 
     return row
@@ -297,10 +324,8 @@ def make_visibility_row(lc, valid_bands, limit_mag_dict = limit_mag_dict):
 
 def determine_visibility(lightcurves_data, return_dict = False):
 
-    lc = lightcurves_data["lc"]
-    valid_bands = list(lightcurves_data["lc_by_band"])
-
-    row = make_visibility_row(lc, valid_bands)
+    lc_by_band = lightcurves_data["lc_by_band"]
+    row = make_visibility_row(lc_by_band, limit_mag_dict = limit_mag_dict)
 
     if return_dict:
         return row
