@@ -6,8 +6,7 @@ import skysurvey
 import sncosmo
 import params
 from params import p_cosmology
-from transient_rates import R_SFR, R_TDE, R_sGRB_gaus
-from transient_rates import plot_rates
+from transient_rates import plot_rates, R_SFR, R_TDE, R_sGRB_gaus
 from plotting_functions import plot_population
 from random_population import generate_random_transients
 
@@ -51,6 +50,8 @@ limit_mag_dict = {
               }
 
 snia_lightcurve_params = ["redshift", "x1", "c", "t0", "magabs", "ra", "dec"]
+# note: skysurvey uses "z" to  refer to redshift.
+
 lsst_colors = ["tab:purple", "tab:green", "tab:orange", "tab:red", "tab:brown", "0.5"]
 
 def fixed_param(size, value = None):
@@ -71,7 +72,7 @@ def fixed_radec(size, ra = None, dec = None):
         raise ValueError("Input dec required")
     return np.full(size, ra), np.full(size, dec)
 
-def get_valid_bands(model, redshift, bands):
+def get_valid_bands(model, redshift, bands, verbose = False):
 
     valid_bands = []
     for band in bands:
@@ -80,9 +81,29 @@ def get_valid_bands(model, redshift, bands):
         if bp.minwave() / (1 + redshift) >= model.minwave() and bp.maxwave() / (1 + redshift) <= model.maxwave():
             valid_bands.append(band)
         else:
-            print(f"Skipping {band}: outside model range.")
+            if verbose:
+                print(f"Skipping {band}: outside model range.")
 
     return valid_bands
+
+
+# Cris' code --> to replace the default .draw_redshift()
+def sample_redshift_from_Rz(N, R_z, z_max=8, p_cosmology=p_cosmology):
+    '''
+    Params
+    ------
+    N: int, total number of redshifts to sample 
+    R_z: func, volumetric rate evolution  function that takes as arguments R_z(z, R0). since we are normalizing the distirbution, R0 can be set to 1. 
+    z_max: int, maximum redshift to sample from. z_mibn is defined in the parameter dictionary p_cosmology
+    p_cosmology: dict, cosmological parameters used for integration. We just take z_min from this
+    
+    '''
+    z_grid = np.linspace(p_cosmology['z_min'], z_max, 100000)
+    rates_k = R_z(z_grid)
+
+    p_k = rates_k / np.sum(rates_k)
+    redshift_sample = np.random.choice(z_grid, p=p_k, size=N)
+    return redshift_sample
 
 def generate_custom_model(redshift=None, x1=None, c=None, t0=None, magabs=None,
                           ra=None, dec=None, N_tot=1):
@@ -91,9 +112,26 @@ def generate_custom_model(redshift=None, x1=None, c=None, t0=None, magabs=None,
     
     """
     Generate dictionary of custom model.
+    This function begins with initialising a new default redshift selection; sample_redshift_from_Rz()
+    This can be replaced with a fixed_param() function if so desired.
+
+    Params:
+    ------
+    Lightcurve params [redshift, x1, c, t0, magabs, ra, dec]
+    N_tot: int, number of targets to generate. Default: 1.
+
+    Returns:
+    -------
+    custom_model: dict, comprising all params to update the snia.target.core.Target.model instance with.
     
     """
     custom_model = {}
+    if redshift is None:
+        custom_model["redshift"] = {
+            "func": sample_redshift_from_Rz,
+            "kwargs": {"N": N_tot, "R_z": R_SFR, "z_max": 8.0, "p_cosmology": p_cosmology},
+            "as": "z",
+        }
 
     for param_name, value in zip(
         ["redshift", "x1", "c", "t0", "magabs"],
@@ -104,7 +142,7 @@ def generate_custom_model(redshift=None, x1=None, c=None, t0=None, magabs=None,
         if param_name == "redshift":
             new_param_name = "z"
         else:
-            new_param_name = param_name
+            new_param_name = param_name # name unchanged
         custom_model[param_name] = {
             "func": fixed_param,
             "kwargs": {"size": N_tot, "value": value},
@@ -131,7 +169,7 @@ def generate_snia_dict(redshift=None, x1=None, c=None, t0=None, magabs=None,
 
     ------------------------------------
     Inputs:
-        - params (float?)
+        - SNIa lightcurve params (float?)
     
     Returns:
         - a dictionary with all the input parameter names and their values (dictionary)
@@ -182,10 +220,10 @@ def generate_ordered_parameter_list(redshift=None, x1=None, c=None, t0=None, mag
 
     return [redshift, x1, c, t0, magabs, ra, dec]
 
-def plot_lightcurve(lightcurve_data, times=None, bands=None, in_mag=False):
+def plot_lightcurve(lightcurve_data, times=None, bands=None, in_mag=False, verbose = False):
 
     fig, ax = plt.subplots(figsize=(6, 4))
-
+    params = lightcurve_data["params"]
     lc_by_band = lightcurve_data["lc_by_band"]
 
     # Plot all valid bands by default
@@ -195,7 +233,8 @@ def plot_lightcurve(lightcurve_data, times=None, bands=None, in_mag=False):
     for band in bands:
 
         if band not in lc_by_band:
-            print(f"Skipping {band}: no light curve available.")
+            if verbose:
+                print(f"Skipping {band}: no light curve available.")
             continue
 
         ax.plot(
@@ -218,6 +257,13 @@ def plot_lightcurve(lightcurve_data, times=None, bands=None, in_mag=False):
 
     ax.set_xlabel("MJD")
     ax.set_ylabel("Magnitude" if in_mag else "Flux (phot/s/cm²)")
+    ax.set_title(
+        "z={z:.3f}, x1={x1:.2f}, c={c:.2f}, "
+        "t0={t0:.1f}, magabs={magabs:.2f}, "
+        "ra={ra:.2f}, dec={dec:.2f}".format(**params),
+        fontsize=7,
+    )
+    
     ax.legend()
 
     plt.show()
@@ -226,7 +272,7 @@ def plot_lightcurve(lightcurve_data, times=None, bands=None, in_mag=False):
 
 def generate_snia_lightcurve(redshift = None, x1 = None, c = None, t0 = None, magabs = None, ra = None, dec = None,
                               bands = None, p = p_cosmology, N_tot = 1, plot_curve = False, return_values = False,
-                              in_mag = False, return_models = False):
+                              in_mag = False, return_models = False, verbose = False):
     """
     Generate lightcurve for a given input redshift.
 
@@ -245,7 +291,7 @@ def generate_snia_lightcurve(redshift = None, x1 = None, c = None, t0 = None, ma
     if redshift is not None:
         if redshift < p_cosmology['z_min'] or redshift > 5.0:
             # we set p_cosmology['z_min'] = 1e-4.
-            raise ValueError("Redshift input out of bounds. Valid range: {} to {}".format(p_cosmology['z_min'], 5.0))
+            raise ValueError("Redshift input out of bounds. Valid range: {} to {}".format(p_cosmology['z_min'], 8.0))
 
     if redshift is None and x1 is None and c is None and t0 is None and magabs is None and ra is None and dec is None and N_tot > 1:
         raise ValueError("If N_tot > 1, at least one parameter must be fixed in order to generate unique targets.")
@@ -257,57 +303,88 @@ def generate_snia_lightcurve(redshift = None, x1 = None, c = None, t0 = None, ma
         raise TypeError("N_tot must be an integer.")
 
     custom_model = generate_custom_model(redshift=redshift, x1=x1, c=c, t0=t0, magabs=magabs,
-                          ra=ra, dec=dec, N_tot=1)
-
-    print(custom_model, type(custom_model))
+                          ra=ra, dec=dec, N_tot=N_tot)
+    if verbose:
+        print(custom_model, type(custom_model))
 
     # make the snia.target.core instance using default model
     snia = skysurvey.SNeIa() #this line should be flexible for future models
 
     # update the snia.target.core.Target.model instance.
     snia.update_model(**custom_model) #unpacking is IMPORTANT. But I don't think this line does anything since we use from_draw() again
-    new_snia = snia.from_draw(size = N_tot, model = custom_model, zmin = p_cosmology['z_min'], zmax = 5.0, nyears = 1, cosmology = None, rate = p_cosmology["R0"]["SN Ia"].value)
+    new_snia = snia.from_draw(size = N_tot, model = custom_model, zmin = p_cosmology['z_min'], zmax = 8.0, cosmology = None, rate = p_cosmology["R0"]["SN Ia"].value)
 
-    # Step 2: get times range
-    t0 = new_snia.data["t0"][0] #check why u need 0 again. because of index 0?
-    phase_start = new_snia.template.get().mintime()
+    # Step 2: get times range for each model new_snia[i]
+    phase_start = new_snia.template.get().mintime() #phases should be const
     phase_stop = min(new_snia.template.get().maxtime(), 200.0)
-    times = np.linspace(phase_start, phase_stop, 500) + t0
+    data = new_snia.data #returns df of all N SNIa targets
+    snia_times_series = new_snia.data["t0"]
 
-    # Step 3: Filter out those filter bands which lie outside of SN model range
-    valid_bands = get_valid_bands(model = new_snia.template.sncosmo_model, redshift = redshift, bands = bands)
+    lc_data_all_targets = []
 
-    # Step 4: Use .get_lightcurve(). Note: this has in_mag = FALSE by default
-    print('valid bands are:', valid_bands)
-    lc = new_snia.get_lightcurve(band = valid_bands, phase_range = (phase_start, phase_stop), times=times,index=0,zp=25,in_mag=in_mag)
+    for target_idx in new_snia.data.index:
+        t0 = snia_times_series[target_idx] #for index i
+        times = np.linspace(phase_start, phase_stop, 500) + t0
 
-    lc_by_band = {band: np.asarray(lc[i]) for i, band in enumerate(valid_bands)}
+        # Step 3: Filter out those filter bands which lie outside of SN model range, using redshift
+        valid_bands = get_valid_bands(model = new_snia.template.sncosmo_model, redshift = data["z"][target_idx], bands = bands, verbose = verbose)
 
-    lightcurves_data = {
-        "times": times,
-        # "lc": lc,
-        "lc_by_band": lc_by_band,
-        "units": "mag" if in_mag else "flux (phot/s/cm^2)",
-        # value_key: y_vals,
-    }
+        # Step 4: Use .get_lightcurve(). Note: this has in_mag = FALSE by default
+        if verbose:
+            print(f"Target {target_idx}: valid bands = {valid_bands}")
+        if not valid_bands:
+            lightcurves_data = {
+                "times": times,
+                "lc_by_band": {},
+                "units": "mag" if in_mag else "flux (phot/s/cm^2)",
+                "params": {
+                    "z": data.loc[target_idx, "z"],
+                    "x1": data.loc[target_idx, "x1"],
+                    "c": data.loc[target_idx, "c"],
+                    "t0": data.loc[target_idx, "t0"],
+                    "magabs": data.loc[target_idx, "magabs"],
+                    "ra": data.loc[target_idx, "ra"],
+                    "dec": data.loc[target_idx, "dec"],
+                },
+            }
+            lc_data_all_targets.append(lightcurves_data)
+            continue
+        lc = new_snia.get_lightcurve(band = valid_bands, phase_range = (phase_start, phase_stop), times=times,index=target_idx,zp=25,in_mag=in_mag)
 
-    if plot_curve:
-        plot_lightcurve(lightcurve_data = lightcurves_data, times = times, bands=valid_bands, in_mag=in_mag)
-    
-    snia_targets = new_snia #recall you can do .from_draw(size, model ,...) then use .get_lightcurve(index = ...)
+        lc_by_band = {band: np.asarray(lc[i]) for i, band in enumerate(valid_bands)}
+
+        lightcurves_data = {
+            "times": times,
+            # "lc": lc,
+            "lc_by_band": lc_by_band,
+            "units": "mag" if in_mag else "flux (phot/s/cm^2)",
+            "params": {
+                "z": data.loc[target_idx, "z"],
+                "x1": data.loc[target_idx, "x1"],
+                "c": data.loc[target_idx, "c"],
+                "t0": data.loc[target_idx, "t0"],
+                "magabs": data.loc[target_idx, "magabs"],
+                "ra": data.loc[target_idx, "ra"],
+                "dec": data.loc[target_idx, "dec"],
+            },
+            # value_key: y_vals,
+        }
+
+        if plot_curve:
+            plot_lightcurve(lightcurve_data = lightcurves_data, times = times, bands=valid_bands, in_mag=in_mag, verbose = verbose)
+        
+        snia_targets = new_snia #recall you can do .from_draw(size, model , ...) then use .get_lightcurve(index = ...)
+        lc_data_all_targets.append(lightcurves_data)
 
     if not return_values:
         if return_models:
             return snia_targets
         return None
-
-    # y_vals = np.column_stack([times] + list(lc))
-    # value_key = "mag" if in_mag else "flux (phot/s/cm^2)"
-
+    
     if not return_models:
-        return lightcurves_data
+        return lc_data_all_targets
 
-    return snia_targets, lightcurves_data
+    return snia_targets, lc_data_all_targets
 
 
 def make_visibility_row(lc_by_band, limit_mag_dict = limit_mag_dict):
