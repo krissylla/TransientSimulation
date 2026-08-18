@@ -40,14 +40,13 @@ p_cosmology = {
 # put these in params.py when you don't need for reference anymore
 
 lsst_bands = ["lsstu", "lsstg", "lsstr", "lssti", "lsstz", "lssty"]
-limit_mag_dict = {
-                "lsstu": {"mag": 23.8, "color": "tab:purple"},
-              "lsstg": {"mag": 24.5, "color": "tab:green"},
-              "lsstr": {"mag": 24.0, "color": "tab:orange"},
-              "lssti": {"mag": 23.4, "color": "tab:red"},
-              "lsstz": {"mag": 22.7, "color": "tab:brown"},
-              "lssty": {"mag": 22.0, "color": '0.5'},
-              }
+# probably add zp in param
+limit_mag_dict = {'lsstu': {'mag': 23.8, 'flux': 301.995, 'color': 'tab:purple'},
+            'lsstg': {'mag': 24.5, 'flux': 158.489, 'color': 'tab:green'},
+            'lsstr': {'mag': 24.0, 'flux': 251.189, 'color': 'tab:orange'},
+            'lssti': {'mag': 23.4, 'flux': 436.516, 'color': 'tab:red'},
+            'lsstz': {'mag': 22.7, 'flux': 831.764, 'color': 'tab:brown'},
+            'lssty': {'mag': 22.0, 'flux': 1584.893, 'color': '0.5'}}
 
 snia_lightcurve_params = ["redshift", "x1", "c", "t0", "magabs", "ra", "dec"]
 # note: skysurvey uses "z" to  refer to redshift.
@@ -255,6 +254,16 @@ def plot_lightcurve(lightcurve_data, times=None, bands=None, in_mag=False, verbo
                 )
         ax.invert_yaxis()
 
+    else:
+        for band in bands:
+            if band in limit_mag_dict:
+                ax.axhline(
+                    limit_mag_dict[band]["flux"],
+                    color=limit_mag_dict[band]["color"],
+                    linestyle="--",
+                    label=f"{band} limit",
+                )
+
     ax.set_xlabel("MJD")
     ax.set_ylabel("Magnitude" if in_mag else "Flux (phot/s/cm²)")
     ax.set_title(
@@ -271,7 +280,7 @@ def plot_lightcurve(lightcurve_data, times=None, bands=None, in_mag=False, verbo
 
 
 def generate_snia_lightcurve(redshift = None, x1 = None, c = None, t0 = None, magabs = None, ra = None, dec = None,
-                              bands = None, p = p_cosmology, N_tot = 1, plot_curve = False, return_values = False,
+                              bands = None, p = p_cosmology, tstart = None, tstop = None, N_tot = 1, zp = 30, zpsys = 'ab', plot_curve = False, return_values = False,
                               in_mag = False, return_models = False, verbose = False):
     """
     Generate lightcurve for a given input redshift.
@@ -284,6 +293,7 @@ def generate_snia_lightcurve(redshift = None, x1 = None, c = None, t0 = None, ma
 
     N_tot: Number of snia targets to simulate. Use N_tot = 1 for now AND if all params are fixed.
     plot_curve: Plots the lightcurve using skysurvey.show_lightcurve()
+    zp: zero-point magnitude (scales the magnitude to zero. 30 for LSST)
     return_models: Returns the snia.target.core.Target instance. Recommended to use False if you have already generated the model.
     return_values: Returns y values (flux or mag) as a 2D array, with each layer as different filters
     
@@ -312,7 +322,7 @@ def generate_snia_lightcurve(redshift = None, x1 = None, c = None, t0 = None, ma
 
     # update the snia.target.core.Target.model instance.
     snia.update_model(**custom_model) #unpacking is IMPORTANT. But I don't think this line does anything since we use from_draw() again
-    new_snia = snia.from_draw(size = N_tot, model = custom_model, zmin = p_cosmology['z_min'], zmax = 8.0, cosmology = None, rate = p_cosmology["R0"]["SN Ia"].value)
+    new_snia = snia.from_draw(size = N_tot, model = custom_model, zmin = p_cosmology['z_min'], zmax = 8.0, cosmology = None, tstart = tstart, tstop = tstop, rate = p_cosmology["R0"]["SN Ia"].value)
 
     # Step 2: get times range for each model new_snia[i]
     phase_start = new_snia.template.get().mintime() #phases should be const
@@ -349,7 +359,7 @@ def generate_snia_lightcurve(redshift = None, x1 = None, c = None, t0 = None, ma
             }
             lc_data_all_targets.append(lightcurves_data)
             continue
-        lc = new_snia.get_lightcurve(band = valid_bands, phase_range = (phase_start, phase_stop), times=times,index=target_idx,zp=25,in_mag=in_mag)
+        lc = new_snia.get_lightcurve(band = valid_bands, phase_range = (phase_start, phase_stop), times=times, index=target_idx, zp=zp, zpsys=zpsys, in_mag=in_mag)
 
         lc_by_band = {band: np.asarray(lc[i]) for i, band in enumerate(valid_bands)}
 
@@ -387,24 +397,43 @@ def generate_snia_lightcurve(redshift = None, x1 = None, c = None, t0 = None, ma
     return snia_targets, lc_data_all_targets
 
 
-def make_visibility_row(lc_by_band, limit_mag_dict = limit_mag_dict):
+def make_visibility_row(lc_by_band, limit_mag_dict = limit_mag_dict, in_mag = True):
     #initialise every band as -1 meaning not available.
     row = {band: -1 for band in limit_mag_dict}
-
+    
     for band, y_vals in lc_by_band.items():
-        row[band] = int(
-            np.any(np.asarray(y_vals) < limit_mag_dict[band]["mag"])
-        ) #returns 0 (falls within filter wavelength range but too faint), 1 if visible
+        if in_mag:
+            row[band] = int(
+                np.any(np.asarray(y_vals) < limit_mag_dict[band]["mag"])
+            ) #returns 0 (falls within filter wavelength range but too faint), 1 if visible
+        else:
+            row[band] = int(
+                np.any(np.asarray(y_vals) < limit_mag_dict[band]["flux"])
+            )
 
     return row
 
 
-def determine_visibility(lightcurves_data, return_dict = False):
+def determine_visibility(lightcurves_data, return_dict = False, in_mag = True):
+    """
+    This assumes that you are using the theoretical lc of 500 datapoints.
+
+    Inputs:
+    ----
+        - lightcurves_data: nested dict, 
+
+    Returns:
+        pd.Dataframe (default). if return_dict == True, dictionary
+    """
 
     lc_by_band = lightcurves_data["lc_by_band"]
-    row = make_visibility_row(lc_by_band, limit_mag_dict = limit_mag_dict)
+    row = make_visibility_row(lc_by_band, limit_mag_dict = limit_mag_dict, in_mag = in_mag)
 
     if return_dict:
         return row
     
     return pd.DataFrame([row])
+
+# make visibility using data from obs = dset.get_target_lightcurve(index = ...)
+# and then obs[obs["band"] == "filter_name")]
+
