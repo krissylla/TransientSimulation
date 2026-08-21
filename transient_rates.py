@@ -192,6 +192,42 @@ def  get_phi_0_k(R_z, E_nu, lambda_k, T_k, R0=1, p=p_cosmology, z_max=6, gamma_k
     return phi_0_k
 
 
+def get_N_k(R_z, z_max=10, R_0=1, p=p_cosmology, time_window=None):
+    '''
+    Computes the total number of transients up to a redshift of z_max assuming the sources follow
+    the rate R_z(R_0)
+
+    N [t^{-1}] = \int_0^{z_max} R(z)/(1+z) dV/dz dz
+    
+    Params:
+    -------
+    R_z: func, volumetric rate pf the functions. Should have format: R_z(z, R_0)
+    time_window: astropy.unit float. It has  to have a time unit if given. 
+    
+    Returns
+    -------
+    N_k: float. If time window is given its in units of [#number of transients / yr]. If timew window is given, then it
+        gives [#number of transients] '''
+
+    z_range = np.linspace(p['z_min'], z_max, 10000)
+
+    cosmo = acosmo.LambdaCDM(H0=p_cosmology['h0']* u.km / u.s / u.Mpc, 
+                         Om0= p_cosmology['omega_M'],
+                        Ode0=p_cosmology['omega_L'])#, Tcmb0=2.725 * u.K,
+    dVdz = cosmo.differential_comoving_volume(z_range)
+
+    y = R_z(z_range, R0=R0) / (1 + z_range) * dVdz
+    N_k = scipy.interpolate.interp1d(z_range, y)
+    if time_window:
+        #check if its in [yr]
+        if not isinstance(a, u.Quantity):
+            "Time window given has no specified unit. Assuming [yr]"
+            time_window = time_window * u.yr
+        #change to yr if different
+        time_window = time_window.to(u.yr)
+        return N_k * time_window
+    return N_k
+
 
 if __name__ == '__main__':
 
