@@ -220,3 +220,42 @@ def five_sigma_detection_by_band(target_data = None, return_index = False):
 
     
     return False
+
+
+# 19 Aug
+
+
+band_data = {}
+for band in lsst_bands:
+    test_set = detections[detections['band'] == band]
+    mags = []
+    mags_darksky = []
+    row = {}
+    for r in range(len(test_set)):
+        test = test_set.iloc[r]
+        skynoise = test['skynoise']
+        flux = test['flux']# + np.random.normal(loc = 0, scale = 120)
+        gain = 1
+        fluxerr = np.sqrt(skynoise ** 2 + np.abs(flux / gain))
+        flux_at_5sig = fluxerr * 5
+        flux_at_5sig_darksky = skynoise * 5
+        limit_mag = flux_to_mag(flux_at_5sig, zp = 30)
+        limit_mag_darksky = flux_to_mag(flux_at_5sig_darksky, zp = 30)
+        mags.append(limit_mag)
+        mags_darksky.append(limit_mag_darksky)
+        median_mag = np.median(mags)
+        median_mag_darksky = np.median(mags_darksky)
+        row['median'] = median_mag
+        row['median_dark'] = median_mag_darksky
+
+
+# using skysurvey.phot.utlls.get_skynoise_from_limit()
+from skysurvey.tools.utils import get_skynoise_from_maglimit
+
+skynoise = get_skynoise_from_maglimit(24.13, zp=30)
+
+limit_skynoise_dict = {
+    band: get_skynoise_from_maglimit(info["mag"],zp=30) for band, info in limit_mag_dict.items()
+}
+
+limit_skynoise_dict

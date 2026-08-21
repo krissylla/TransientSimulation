@@ -399,7 +399,8 @@ def generate_snia_lightcurve(redshift = None, x1 = None, c = None, t0 = None, ma
 
 def make_visibility_row(lc_by_band, limit_mag_dict = limit_mag_dict, in_mag = True):
     #initialise every band as -1 meaning not available.
-    row = {band: -1 for band in limit_mag_dict}
+    #i choose 0 for now to prevent confusion
+    row = {band: 0 for band in limit_mag_dict}
     
     for band, y_vals in lc_by_band.items():
         if in_mag:
@@ -408,7 +409,7 @@ def make_visibility_row(lc_by_band, limit_mag_dict = limit_mag_dict, in_mag = Tr
             ) #returns 0 (falls within filter wavelength range but too faint), 1 if visible
         else:
             row[band] = int(
-                np.any(np.asarray(y_vals) < limit_mag_dict[band]["flux"])
+                np.any(np.asarray(y_vals) > limit_mag_dict[band]["flux"])
             )
 
     return row
