@@ -220,7 +220,7 @@ def get_N_k(R_z, z_max=10, R_0=1, p=p_cosmology, time_window=None):
     N_k = scipy.interpolate.interp1d(z_range, y)
     if time_window:
         #check if its in [yr]
-        if not isinstance(a, u.Quantity):
+        if not isinstance(time_window, u.Quantity):
             "Time window given has no specified unit. Assuming [yr]"
             time_window = time_window * u.yr
         #change to yr if different
