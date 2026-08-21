@@ -192,7 +192,7 @@ def  get_phi_0_k(R_z, E_nu, lambda_k, T_k, R0=1, p=p_cosmology, z_max=6, gamma_k
     return phi_0_k
 
 
-def get_N_k(R_z, z_max=10, R_0=1, p=p_cosmology, time_window=None):
+def get_N_k(R_z, z_max=10, R0=1, p=p_cosmology, time_window=None, sky_area=4*np.pi*u.sr):
     '''
     Computes the total number of transients up to a redshift of z_max assuming the sources follow
     the rate R_z(R_0)
@@ -209,16 +209,19 @@ def get_N_k(R_z, z_max=10, R_0=1, p=p_cosmology, time_window=None):
     N_k: float. If time window is given its in units of [#number of transients / yr]. If timew window is given, then it
         gives [#number of transients] '''
 
+    #change R0 to correct units:
+    R0 = R0.to(u.Mpc**-3 * u.yr ** -1)
     z_range = np.linspace(p['z_min'], z_max, 10000)
 
     cosmo = acosmo.LambdaCDM(H0=p_cosmology['h0']* u.km / u.s / u.Mpc, 
-                         Om0= p_cosmology['omega_M'],
+                         Om0=p_cosmology['omega_M'],
                         Ode0=p_cosmology['omega_L'])#, Tcmb0=2.725 * u.K,
     dVdz = cosmo.differential_comoving_volume(z_range)
 
-    y = R_z(z_range, R0=R0) / (1 + z_range) * dVdz
-    N_k = scipy.interpolate.interp1d(z_range, y)
-    if time_window:
+    y = R_z(z_range, R0=R0) / (1 + z_range) * dVdz * sky_area
+    # N_k = scipy.interpolate.interp1d(z_range, y)
+    N_k = scipy.integrate.trapezoid(y, z_range)
+    if time_window is not None:
         #check if its in [yr]
         if not isinstance(time_window, u.Quantity):
             "Time window given has no specified unit. Assuming [yr]"
@@ -231,6 +234,9 @@ def get_N_k(R_z, z_max=10, R_0=1, p=p_cosmology, time_window=None):
 
 if __name__ == '__main__':
 
+    print('checking N_k')
+    N_k = get_N_k(R_SFR, R0=p_cosmology['R0']['SN Ia'], time_window=1 * u.yr, sky_area=2*np.pi*u.sr)
+    print("N_k = ", N_k)    
     #This plots the rates staed in this file
     R0 = p_cosmology['R0']
     for key in R0.keys():
@@ -241,7 +247,7 @@ if __name__ == '__main__':
         print(f"R0 {key} = {np.format_float_scientific(R0[key].value)} [Gpc^-3 yr^-1]")
 
     z_range = np.linspace(0, 5, p_cosmology['N_int_steps'])
-    plt.plot(z_range, R_CC(z_range, R0=R0['SN CC'].value), label='CC', c='blue')
+    plt.plot(z_range, R_SFR(z_range, R0=R0['SN CC'].value), label='CC', c='blue')
     plt.plot(z_range, R_TDE(z_range, R0=R0['TDE'].value), label='TDE', c='orange')
     plt.plot(z_range, R_sGRB_gaus(z_range, R0=R0['KN'].value), label='KN Gaussian', c='purple')
     plt.plot(z_range, R_sGRB_lognorm(z_range, R0=R0['KN'].value), label='KN log-normal', c='purple', linestyle='dashed')
