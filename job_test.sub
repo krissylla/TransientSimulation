@@ -1,7 +1,14 @@
-# submit script
+# submit script. 
+# you need to make a folder inside ssh direcctory first
 
 Executable  = /bin/bash
 args        = -c "echo "Hello World""
+Log         = /path/to/log/log_$(Cluster)_$(Process).txt
+Output      = /path/to/output/out_$(Cluster)_$(Process).txt
+Error       = /path/to/output/err_$(Cluster)_$(Process).txt
+
+Executable  = /usr/bin/python3.12
+args        = 
 Log         = /path/to/log/log_$(Cluster)_$(Process).txt
 Output      = /path/to/output/out_$(Cluster)_$(Process).txt
 Error       = /path/to/output/err_$(Cluster)_$(Process).txt

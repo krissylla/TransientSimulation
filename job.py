@@ -1,30 +1,70 @@
-# argparse
-# this file will be passed into the script.job file
-import lightcurve # any function that directly handles LCs
-import lsst_functions # any function that manipulates LSST opsim + data
+import os
+import argparse
+import pandas as pd
 
+import lightcurve
+import lsst_functions
+import skysurvey
 
+parser = argparse.ArgumentParser()
 
-from argparse import ArgumentParser
-parser = ArgumentParser()
-parser.add_argument('--N_tot', type = int, default = 10)
-parser.add_argument('--nights', type = int, default=365)
-
-parser.add_argument("--z", type=float, default=None)
-parser.add_argument("--x1", type=float, default=None)
-parser.add_argument("--c", type=float, default=None)
-parser.add_argument("--t0", type=float, default=None)
-parser.add_argument("--magabs", type=float, default=None)
-parser.add_argument("--ra", type=float, default=None)
-parser.add_argument("--dec", type=float, default=None)
+parser.add_argument("--N_tot",type=int,default=100_000,)
+parser.add_argument("--batch",type=int,required=True,)
+parser.add_argument("--output_dir",type=str,default="results")
 
 args = parser.parse_args()
+N_tot = args.N_tot
+batch = args.batch
+output_dir = args.output_dir
 
-selection_criteria = lsst_functions.set_selection_criteria(total_points=5,n_filters=2,min_points_per_filter=2)
+# Selection criteria
+selection_criteria = lsst_functions.set_selection_criteria(
+    total_points=5,
+    n_filters=2,
+    min_points_per_filter=2,
+)
+
+# Load LSST survey opsim
+opsim_path = "baseline_v5.3.5_10yrs.db"
+lsst = skysurvey.LSST.from_opsim(opsim_path,sql_where="night < 365")
+
+# Generate SNIa population
+snia_dict = lightcurve.generate_snia_dict(
+    redshift=None, ra=None, dec=None, x1=None,
+    t0=None, magabs=None, c=None)
+
+snia_param_list = lightcurve.generate_ordered_parameter_list(input_dict=True,params=snia_dict,)
 
 detected = lsst_functions.get_total_alerts_from_survey(
-    snia_param_list = None, opsim = None, N_tot = None,
-    selection_criteria = selection_criteria, by_band = False):
+    snia_param_list=snia_param_list,
+    opsim=lsst,
+    N_tot=N_tot,
+    selection_criteria=selection_criteria,
+)
 
-detected.to_parquet("smallparquet.parquet",engine="pyarrow",compression="zstd",index=False)
+# Add batch information
+detected["batch"] = batch
+# Make target IDs globally unique across batches
+detected["target_global"] = (
+    detected["target"] + batch * N_tot
+)
 
+# Save
+
+os.makedirs(output_dir, exist_ok=True)
+
+output_path = os.path.join(
+    output_dir,
+    f"detected_{batch:03d}.parquet"
+)
+
+detected.to_parquet(
+    output_path,
+    engine="pyarrow",
+    compression="zstd",
+    index=False,
+)
+
+print(f"Finished batch {batch}")
+print(f"Sources: {len(detected)}")
+print(f"Output: {output_path}")

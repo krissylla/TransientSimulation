@@ -228,7 +228,7 @@ def detectability_sources(snia_param_list = None, opsim = None, N_tot = None, re
     return final_summary
 
 
-def get_total_alerts_from_survey(snia_param_list = None, opsim = None, N_tot = None, selection_criteria = set_selection_criteria(total_points=5,n_filters=2,min_points_per_filter=2), by_band = False):
+def get_total_alerts_from_survey(snia_param_list = None, opsim = None, N_tot = None, selection_criteria = set_selection_criteria(total_points=5,n_filters=2,min_points_per_filter=2)):
     """
     For a given survey input, generate expected alerts/detections.
 
@@ -310,23 +310,6 @@ def get_total_alerts_from_survey(snia_param_list = None, opsim = None, N_tot = N
 
         })
     detected = pd.DataFrame(detected)
-
-
-    if by_band:
-        detected.append({
-            "target": index,
-            "z": snia_models.data.loc[index, "z"],
-            "x1": snia_models.data.loc[index, "x1"],
-            "c": snia_models.data.loc[index, "c"],
-            "t0": snia_models.data.loc[index, "t0"],
-            'magabs': snia_models.data.loc[index, "magabs"],
-            'magobs': snia_models.data.loc[index, "magobs"],
-            "ra": snia_models.data.loc[index, "ra"],
-            "dec": snia_models.data.loc[index, "dec"],
-            "detected": is_detected,
-            "n_detections": total_detection_points,
-
-        })
 
     # to parquet here??
     # make function return parquet? I think you should do it externally in the submit .py script.

@@ -1,7 +1,14 @@
-# submit script
+universe = vanilla
 
-Executable  = /bin/bash
-args        = -c "echo "Hello World""
-Log         = /path/to/log/log_$(Cluster)_$(Process).txt
-Output      = /path/to/output/out_$(Cluster)_$(Process).txt
-Error       = /path/to/output/err_$(Cluster)_$(Process).txt
+Executable = /cephfs/users/gohdenze/micromamba/envs/TransientLightcurves/bin/python
+
+Arguments = job.py --N_tot 100000 --batch $(Process) --output_dir /path/to/results
+
+Log = /path/to/log/log_$(Cluster)_$(Process).txt
+Output = /path/to/output/out_$(Cluster)_$(Process).txt
+Error = /path/to/output/err_$(Cluster)_$(Process).txt
+
+request_cpus = 1
+request_memory = 8GB
+
+queue 50
