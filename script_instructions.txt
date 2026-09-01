@@ -1,0 +1,24 @@
+31 August 2026: Instructions.
+Sources:
+    - https://dv-zeuthen.desy.de/documentation/batch
+    - Refer to section on "Job Submission" and "Job Monitoring"
+
+31 Aug 14h00: Installed a copy of TransientLightcurves environment into the ssh
+
+Make sure you git push changes into the TransientLightcurves environement each time.
+
+Open new terminal
+enter ssh with: ssh gohdenze@warp.zeuthen.desy.de
+- you will be prompted to type in your password and Output
+
+The code you had been working on exists inside the WSL TransientSimulation; not in the remote cluster directory.
+Hence, you need to git push changes
+
+Consolidate everything into a python script, because you need it to work with just one when you submit a job
+Split the 50 million SNIa into diff batches, then merge
+    You would need to automate the naming of the diff scripts std-out and std-err
+With ArgParse, you can input arguments. Very useful for flexibility e.g. calling N_tot anytime
+Executable should be your path to python3.12
+
+We use condor_submit.
+condor_q to check status.

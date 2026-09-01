@@ -9,6 +9,7 @@ from params import p_cosmology
 from transient_rates import plot_rates, R_SFR, R_TDE, R_sGRB_gaus
 from plotting_functions import plot_population
 from random_population import generate_random_transients
+from skysurvey.tools.utils import random_radec
 
 import astropy.units as u
 from astropy.time import Time
@@ -71,6 +72,13 @@ def fixed_radec(size, ra = None, dec = None):
         raise ValueError("Input dec required")
     return np.full(size, ra), np.full(size, dec)
 
+# lsst in skysurvey uses zp 30
+def flux_to_mag(flux, zp=30):
+    return zp - 2.5*np.log10(flux)
+
+def mag_to_flux(mag, zp=30):
+    return 10**(-0.4*(mag-zp))
+
 def get_valid_bands(model, redshift, bands, verbose = False):
 
     valid_bands = []
@@ -87,7 +95,7 @@ def get_valid_bands(model, redshift, bands, verbose = False):
 
 
 # Cris' code --> to replace the default .draw_redshift()
-def sample_redshift_from_Rz(N, R_z, z_max=8, p_cosmology=p_cosmology):
+def sample_redshift_from_Rz(N, R_z, z_max=1, p_cosmology=p_cosmology):
     '''
     Params
     ------
@@ -128,9 +136,17 @@ def generate_custom_model(redshift=None, x1=None, c=None, t0=None, magabs=None,
     if redshift is None:
         custom_model["redshift"] = {
             "func": sample_redshift_from_Rz,
-            "kwargs": {"N": N_tot, "R_z": R_SFR, "z_max": 8.0, "p_cosmology": p_cosmology},
+            "kwargs": {"N": N_tot, "R_z": R_SFR, "z_max": 1.0, "p_cosmology": p_cosmology},
             "as": "z",
         }
+
+    if (ra is None) and (dec is None):
+        custom_model["radec"] = {
+            'as': ['ra', 'dec'],
+           'func': random_radec,
+           'kwargs': {'dec_range':[-90, 0]},
+        }
+
 
     for param_name, value in zip(
         ["redshift", "x1", "c", "t0", "magabs"],
@@ -304,7 +320,8 @@ def generate_snia_lightcurve(redshift = None, x1 = None, c = None, t0 = None, ma
             raise ValueError("Redshift input out of bounds. Valid range: {} to {}".format(p_cosmology['z_min'], 8.0))
 
     if redshift is None and x1 is None and c is None and t0 is None and magabs is None and ra is None and dec is None and N_tot > 1:
-        raise ValueError("If N_tot > 1, at least one parameter must be fixed in order to generate unique targets.")
+        print('All params input as None. Using default sampling functions, but with p_cosmology.')
+        # raise ValueError("If N_tot > 1, at least one parameter must be fixed in order to generate unique targets.")
 
     if N_tot < 1:
         raise ValueError("N_tot must be a positive integer.")
@@ -323,7 +340,7 @@ def generate_snia_lightcurve(redshift = None, x1 = None, c = None, t0 = None, ma
     # update the snia.target.core.Target.model instance.
     snia.update_model(**custom_model) #unpacking is IMPORTANT. But I don't think this line does anything since we use from_draw() again
     new_snia = snia.from_draw(size = N_tot, model = custom_model, zmin = p_cosmology['z_min'], zmax = 8.0, cosmology = None, tstart = tstart, tstop = tstop, rate = p_cosmology["R0"]["SN Ia"].value)
-
+    print('CUSTOM MODEL IS', custom_model)
     # Step 2: get times range for each model new_snia[i]
     phase_start = new_snia.template.get().mintime() #phases should be const
     phase_stop = min(new_snia.template.get().maxtime(), 200.0)
@@ -377,7 +394,6 @@ def generate_snia_lightcurve(redshift = None, x1 = None, c = None, t0 = None, ma
                 "ra": data.loc[target_idx, "ra"],
                 "dec": data.loc[target_idx, "dec"],
             },
-            # value_key: y_vals,
         }
 
         if plot_curve:
