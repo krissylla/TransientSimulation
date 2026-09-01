@@ -3,7 +3,7 @@ universe = vanilla
 Executable = /cephfs/users/gohdenze/micromamba/envs/TransientLightcurves/bin/python
 initialdir = /cephfs/users/gohdenze/TransientSimulation
 
-Arguments = job.py --N_tot 100000 --batch 0 --output_dir /cephfs/users/gohdenze/TransientSimulation/results
+Arguments = job.py --total_targets 5646906 --batch_size 100000 --batch $(Process) --output_dir /cephfs/users/gohdenze/TransientSimulation/results
 
 Log    = /cephfs/users/gohdenze/TransientSimulation/LOGS/log_$(Cluster)_$(Process).log
 Output = /cephfs/users/gohdenze/TransientSimulation/output/out_$(Cluster)_$(Process).txt
@@ -11,7 +11,7 @@ Error  = /cephfs/users/gohdenze/TransientSimulation/output/err_$(Cluster)_$(Proc
 
 should_transfer_files = no
 
-# request 2GB RAM -> i changed to 4
-request_memory = 4096
+# request 2GB RAM -> i changed to 8
+request_memory = 8192
 
 queue 57
