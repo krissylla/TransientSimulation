@@ -340,7 +340,7 @@ def add_zbin_column(dataframe, zbin_max = 1.0, zbin_size = 0.2):
     
     detected_models = dataframe[dataframe['detected'] == True] # == True is optional
     params = ['z', 'x1', 'c', 't0', 'magabs', 'magobs', 'ra', 'dec']
-    z_bins = np.arange(0, zbin_max + 0.001, 0.2)
+    z_bins = np.arange(0, zbin_max + 0.001, zbin_size)
     detected_models["z_bin"] = pd.cut(detected_models["z"],bins=z_bins,right=False)
 
     return detected_models #with one additional column
