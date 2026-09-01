@@ -6,10 +6,12 @@ import lightcurve
 import lsst_functions
 import skysurvey
 
+from matplotlib import pyplot as plt
+
 parser = argparse.ArgumentParser()
 
-parser.add_argument("--N_tot",type=int,default=100_000,)
-parser.add_argument("--batch",type=int,required=True,)
+parser.add_argument("--N_tot",type=int,default=100_000)
+parser.add_argument("--batch",type=int,required=True)
 parser.add_argument("--output_dir",type=str,default="results")
 
 args = parser.parse_args()
@@ -18,14 +20,11 @@ batch = args.batch
 output_dir = args.output_dir
 
 # Selection criteria
-selection_criteria = lsst_functions.set_selection_criteria(
-    total_points=5,
-    n_filters=2,
-    min_points_per_filter=2,
-)
+selection_criteria = lsst_functions.set_selection_criteria(total_points=5,n_filters=2,min_points_per_filter=2)
 
 # Load LSST survey opsim
-opsim_path = "baseline_v5.3.5_10yrs.db"
+project_dir = os.path.dirname(os.path.abspath(__file__))
+opsim_path = os.path.join(project_dir, "baseline_v5.3.5_10yrs.db")
 lsst = skysurvey.LSST.from_opsim(opsim_path,sql_where="night < 365")
 
 # Generate SNIa population
@@ -45,18 +44,12 @@ detected = lsst_functions.get_total_alerts_from_survey(
 # Add batch information
 detected["batch"] = batch
 # Make target IDs globally unique across batches
-detected["target_global"] = (
-    detected["target"] + batch * N_tot
-)
+detected["target_global"] = (detected["target"] + batch * N_tot)
 
 # Save
-
 os.makedirs(output_dir, exist_ok=True)
 
-output_path = os.path.join(
-    output_dir,
-    f"detected_{batch:03d}.parquet"
-)
+output_path = os.path.join(output_dir, f"detected_{batch:03d}.parquet")
 
 detected.to_parquet(
     output_path,
