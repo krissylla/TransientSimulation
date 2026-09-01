@@ -50,7 +50,7 @@ detected["target_global"] = (detected["target"] + batch * N_tot)
 # Save
 os.makedirs(output_dir, exist_ok=True)
 
-output_path = os.path.join(output_dir, f"detected_{batch:03d}.parquet")
+output_path = os.path.join(output_dir, f"detected_N{N_tot}_{batch:03d}.parquet")
 
 detected.to_parquet(
     output_path,
