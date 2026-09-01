@@ -10,14 +10,31 @@ from matplotlib import pyplot as plt
 
 parser = argparse.ArgumentParser()
 
-parser.add_argument("--N_tot",type=int,default=100_000)
-parser.add_argument("--batch",type=int,required=True)
-parser.add_argument("--output_dir",type=str,default="results")
+parser.add_argument("--total_targets", type=int, required=True)
+parser.add_argument("--batch_size", type=int, default=100_000)
+parser.add_argument("--batch", type=int, required=True)
+parser.add_argument("--output_dir", type=str, default="results")
 
 args = parser.parse_args()
-N_tot = args.N_tot
+
+total_targets = args.total_targets
+batch_size = args.batch_size
 batch = args.batch
 output_dir = args.output_dir
+
+# Calculate number of targets for this particular batch
+start_target = batch * batch_size
+N_tot = min(batch_size, total_targets - start_target)
+
+if N_tot <= 0:
+    raise ValueError(
+        f"Batch {batch} is beyond the requested {total_targets} targets."
+    )
+
+print(f"Total targets: {total_targets}")
+print(f"Batch: {batch}")
+print(f"Targets in this batch: {N_tot}")
+print(f"Global target range: {start_target} - {start_target + N_tot - 1}")
 
 # Selection criteria
 selection_criteria = lsst_functions.set_selection_criteria(total_points=5,n_filters=2,min_points_per_filter=2)
@@ -45,7 +62,7 @@ detected = lsst_functions.get_total_alerts_from_survey(
 # Add batch information
 detected["batch"] = batch
 # Make target IDs globally unique across batches
-detected["target_global"] = (detected["target"] + batch * N_tot)
+detected["target_global"] = detected["target"] + start_target
 
 # Save
 os.makedirs(output_dir, exist_ok=True)
