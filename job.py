@@ -52,7 +52,7 @@ snia_dict = lightcurve.generate_snia_dict(
 
 snia_param_list = lightcurve.generate_ordered_parameter_list(input_dict=True,params=snia_dict,)
 
-detected = lsst_functions.get_total_alerts_from_survey(
+detected = lsst_functions.get_total_alerts_from_survey_by_band(
     snia_param_list=snia_param_list,
     opsim=lsst,
     N_tot=N_tot,

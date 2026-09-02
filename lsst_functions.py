@@ -228,6 +228,42 @@ def detectability_sources(snia_param_list = None, opsim = None, N_tot = None, re
     return final_summary
 
 
+def get_detection_summary(dataset, index,selection_criteria=None):
+    """
+    Return detection information for one target using a single
+    dataset.get_data() call.
+    Instead of having to run:
+        - five_sigma_detection_multiband()
+        - get_number_detections_all_bands or ...get_number_detections_by_band()
+        this function combines them.
+    """
+
+    row = {
+        "detected": False,
+        "n_detections": 0,
+        **{band: 0 for band in lsst_bands},
+    }
+
+    detection_rows = dataset.get_data(index=index,detection=True)
+
+    if len(detection_rows) == 0:
+        return row
+
+    band_counts = detection_rows["band"].value_counts()
+
+    # Apply source-level selection
+    if not exist_in_multiband_check(band_counts,selection_criteria=selection_criteria):
+        return row
+
+    row["detected"] = True
+    row["n_detections"] = len(detection_rows)
+
+    for band in lsst_bands:
+        row[band] = band_counts.get(band, 0)
+
+    return row
+
+
 def get_total_alerts_from_survey(snia_param_list = None, opsim = None, N_tot = None, selection_criteria = set_selection_criteria(total_points=5,n_filters=2,min_points_per_filter=2)):
     """
     For a given survey input, generate expected alerts/detections.
@@ -278,12 +314,15 @@ def get_total_alerts_from_survey(snia_param_list = None, opsim = None, N_tot = N
         )
         
     dset = skysurvey.DataSet.from_targets_and_survey(snia_models, lsst, progress_bar=True, discard_bands=True)
-    dset_target_indices = dset.data.index.get_level_values(0).unique().values
+    dset_target_indices = set(dset.data.index.get_level_values(0).unique())
+    target_data = snia_models.data[["z", "x1", "c", "t0", "magabs", "magobs", "ra", "dec"]]
 
     detected = [] #
     is_detected = False #initialise bool
 
-    for index in snia_models.data.index:
+    for target in target_data.itertuples(index=True):
+
+        index = target.Index
         total_detection_points = 0
         is_detected = False
 
@@ -298,17 +337,16 @@ def get_total_alerts_from_survey(snia_param_list = None, opsim = None, N_tot = N
         # you need to append in order
         detected.append({
             "target": index,
-            "z": snia_models.data.loc[index, "z"],
-            "x1": snia_models.data.loc[index, "x1"],
-            "c": snia_models.data.loc[index, "c"],
-            "t0": snia_models.data.loc[index, "t0"],
-            'magabs': snia_models.data.loc[index, "magabs"],
-            'magobs': snia_models.data.loc[index, "magobs"],
-            "ra": snia_models.data.loc[index, "ra"],
-            "dec": snia_models.data.loc[index, "dec"],
+            "z": target.z,
+            "x1": target.x1,
+            "c": target.c,
+            "t0": target.t0,
+            "magabs": target.magabs,
+            "magobs": target.magobs,
+            "ra": target.ra,
+            "dec": target.dec,
             "detected": is_detected,
             "n_detections": total_detection_points,
-
         })
     detected = pd.DataFrame(detected)
 
@@ -318,14 +356,41 @@ def get_total_alerts_from_survey(snia_param_list = None, opsim = None, N_tot = N
     return detected # you need to convert to parquet later.
 
 
+def get_number_detections_by_band(dataset, index=0, selection_criteria = None):
+    """
+    Split by band. Total number of detected points for a given dataset.
+    You will need to divide by N_tot separately later. 
 
+    Input:
+    ---------
+        dataset (skysurvey.target.transient): skysurvey target transient object
+        index (int): index of the target in the dataset
+        selection_criteria (dict): dictionary of selection criteria for detection    
+    """
+   
+    row = {band: 0 for band in lsst_bands} #initiate
+    detection_rows = dataset.get_data(index=index,detection=True)
+
+    if len(detection_rows) == 0:
+        return row
+
+    indiv_data = detection_rows["band"].value_counts()
+
+    if not exist_in_multiband_check(indiv_data, selection_criteria = selection_criteria): #we should expect >=5 for all plots
+        return row
+
+    for band in lsst_bands:
+        band_data = detection_rows[detection_rows["band"] == band]
+        row[band] = len(band_data)
+
+    return row
 
 
 def get_total_alerts_from_survey_by_band(snia_param_list = None, opsim = None, N_tot = None, selection_criteria = set_selection_criteria(total_points=5,n_filters=2,min_points_per_filter=2)):
     """
     For a given survey input, generate expected alerts/detections.
 
-    ***This is the MAIN script to be run through bash.***
+    ***If wanting extra by_band statistics, this is the MAIN script to be run through bash.***
 
     Parameters
     ----------
@@ -371,43 +436,46 @@ def get_total_alerts_from_survey_by_band(snia_param_list = None, opsim = None, N
         )
         
     dset = skysurvey.DataSet.from_targets_and_survey(snia_models, lsst, progress_bar=True, discard_bands=True)
-    dset_target_indices = dset.data.index.get_level_values(0).unique().values
+    dset_target_indices = set(dset.data.index.get_level_values(0).unique())
+    target_data = snia_models.data[["z", "x1", "c", "t0", "magabs", "magobs", "ra", "dec"]]
 
-    detected = [] #
-    is_detected = False #initialise bool
+    detected = []
 
-    for index in snia_models.data.index:
-        total_detection_points = 0
-        is_detected = False
+    for target in target_data.itertuples(index=True):
+
+        index = target.Index
 
         if index in dset_target_indices:
-            is_detected = five_sigma_detection_multiband(dataset=dset,targets=snia_models,index=index,selection_criteria=selection_criteria)
+
+            detection_summary = get_detection_summary(
+                dataset=dset,
+                index=index,
+                selection_criteria=selection_criteria,
+            )
+
         else:
-            is_detected = False
-            total_detection_points = 0
 
-        if is_detected:
-            total_detection_points = get_number_detections_allbands(dataset=dset,targets=snia_models,index=index,selection_criteria=selection_criteria)
+            detection_summary = {
+                "detected": False,
+                "n_detections": 0,
+                **{band: 0 for band in lsst_bands},
+            }
 
-        # you need to append in order
         detected.append({
             "target": index,
-            "z": snia_models.data.loc[index, "z"],
-            "x1": snia_models.data.loc[index, "x1"],
-            "c": snia_models.data.loc[index, "c"],
-            "t0": snia_models.data.loc[index, "t0"],
-            'magabs': snia_models.data.loc[index, "magabs"],
-            'magobs': snia_models.data.loc[index, "magobs"],
-            "ra": snia_models.data.loc[index, "ra"],
-            "dec": snia_models.data.loc[index, "dec"],
-            "detected": is_detected,
-            "n_detections": total_detection_points,
+            "z": target.z,
+            "x1": target.x1,
+            "c": target.c,
+            "t0": target.t0,
+            "magabs": target.magabs,
+            "magobs": target.magobs,
+            "ra": target.ra,
+            "dec": target.dec,
 
+            **detection_summary,
         })
-    detected = pd.DataFrame(detected)
 
-    # to parquet here??
-    # make function return parquet? I think you should do it externally in the submit .py script.
+    detected = pd.DataFrame(detected)
 
     return detected # you need to convert to parquet later.
 

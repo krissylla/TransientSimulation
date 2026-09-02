@@ -144,7 +144,7 @@ def generate_custom_model(redshift=None, x1=None, c=None, t0=None, magabs=None,
         custom_model["radec"] = {
             'as': ['ra', 'dec'],
            'func': random_radec,
-           'kwargs': {'dec_range':[-90, 0]},
+           'kwargs': {'dec_range':[-90, 0]}, #put this in params.py later
         }
 
 
@@ -182,6 +182,7 @@ def generate_snia_dict(redshift=None, x1=None, c=None, t0=None, magabs=None,
     Unlike Cris' generate_random_transients() function, this function lets you build a dict.
     You do not need to fix every parameter. All unfixed params will be randomised.
 
+    02 Sep 2026: ADD ra_range and dec_range as input parameters.
     ------------------------------------
     Inputs:
         - SNIa lightcurve params (float?)
