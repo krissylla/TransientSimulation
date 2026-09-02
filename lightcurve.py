@@ -315,9 +315,9 @@ def generate_snia_lightcurve(redshift = None, x1 = None, c = None, t0 = None, ma
     
     """
     if redshift is not None:
-        if redshift < p_cosmology['z_min'] or redshift > 5.0:
+        if redshift < p_cosmology['z_min'] or redshift > 1.0:
             # we set p_cosmology['z_min'] = 1e-4.
-            raise ValueError("Redshift input out of bounds. Valid range: {} to {}".format(p_cosmology['z_min'], 8.0))
+            raise ValueError("Redshift input out of bounds. Valid range: {} to {}".format(p_cosmology['z_min'], 1.0))
 
     if redshift is None and x1 is None and c is None and t0 is None and magabs is None and ra is None and dec is None and N_tot > 1:
         print('All params input as None. Using default sampling functions, but with p_cosmology.')

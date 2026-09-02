@@ -270,9 +270,10 @@ def get_total_alerts_from_survey(snia_param_list = None, opsim = None, N_tot = N
     print(f"Start: {Time(tmin, format='mjd').iso}")
     print(f"End:   {Time(tmax, format='mjd').iso}")
     print(f"Duration: {(tmax - tmin)/365.25:.1f} years")
-    
+
+    tmin_SN = tmin - 100 #we want some t0 to be before the survey starts
     snia_models, data_models = generate_snia_lightcurve(*snia_param_list, bands=lsst_bands, in_mag=False,
-        N_tot=N_tot, zp=30, tstart = tmin, tstop = tmax,plot_curve=False,
+        N_tot=N_tot, zp=30, tstart = tmin_SN, tstop = tmax,plot_curve=False,
         return_values=True, return_models=True, verbose=False
         )
         
@@ -339,7 +340,7 @@ def add_zbin_column(dataframe, zbin_max = 1.0, zbin_size = 0.2):
         raise ValueError('Redshift increment is too small! Accepted values are >= 0.001')
     
     detected_models = dataframe[dataframe['detected'] == True] # == True is optional
-    params = ['z', 'x1', 'c', 't0', 'magabs', 'magobs', 'ra', 'dec']
+    # params = ['z', 'x1', 'c', 't0', 'magabs', 'magobs', 'ra', 'dec']
     z_bins = np.arange(0, zbin_max + 0.001, zbin_size)
     detected_models["z_bin"] = pd.cut(detected_models["z"],bins=z_bins,right=False)
 
@@ -365,10 +366,6 @@ def get_nsources_nalerts_per_zbin(detected_models):
     n_sources = (detected_sources.groupby("z_bin", observed=True).size())
     n_alerts = (detected_sources.groupby("z_bin", observed=True)["n_detections"].sum())
     return n_sources, n_alerts
-
-
-def plot_detectability_redshift_bins(n_sources):
-    return None
 
 
 

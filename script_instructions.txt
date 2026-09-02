@@ -22,3 +22,7 @@ Executable should be your path to python3.12
 
 We use condor_submit.
 condor_q to check status.
+
+inside bash terminal (WSL home), use:
+scp gohdenze@transfer.zeuthen.desy.de:/cephfs/users/gohdenze/TransientSimulation/resu
+lts/* .
