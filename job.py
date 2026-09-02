@@ -42,7 +42,7 @@ selection_criteria = lsst_functions.set_selection_criteria(total_points=5,n_filt
 # Load LSST survey opsim
 project_dir = os.path.dirname(os.path.abspath(__file__))
 opsim_path = os.path.join(project_dir, "baseline_v5.3.5_10yrs.db")
-lsst = skysurvey.LSST.from_opsim(opsim_path,sql_where="night < 365")
+lsst = skysurvey.LSST.from_opsim(opsim_path)
 lsst.data["band"] = (lsst.data["band"].str.replace(r"_\d+$", "", regex=True))
 
 # Generate SNIa population
@@ -50,7 +50,7 @@ snia_dict = lightcurve.generate_snia_dict(
     redshift=None, ra=None, dec=None, x1=None,
     t0=None, magabs=None, c=None)
 
-snia_param_list = lightcurve.generate_ordered_parameter_list(input_dict=True,params=snia_dict,)
+snia_param_list = lightcurve.generate_ordered_parameter_list(input_dict=True,params=snia_dict)
 
 detected = lsst_functions.get_total_alerts_from_survey_by_band(
     snia_param_list=snia_param_list,
