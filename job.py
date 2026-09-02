@@ -18,7 +18,7 @@ parser.add_argument("--output_dir", type=str, default="results")
 args = parser.parse_args()
 
 total_targets = args.total_targets
-batch_size = args.batch_sizes
+batch_size = args.batch_size
 batch = args.batch
 output_dir = args.output_dir
 
