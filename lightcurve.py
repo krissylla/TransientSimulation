@@ -95,7 +95,7 @@ def get_valid_bands(model, redshift, bands, verbose = False):
 
 
 # Cris' code --> to replace the default .draw_redshift()
-def sample_redshift_from_Rz(N, R_z, z_max=10, p_cosmology=p_cosmology):
+def sample_redshift_from_Rz(N, R_z, z_max=1.0, p_cosmology=p_cosmology):
     '''
     Params
     ------
@@ -136,7 +136,7 @@ def generate_custom_model(redshift=None, x1=None, c=None, t0=None, magabs=None,
     if redshift is None:
         custom_model["redshift"] = {
             "func": sample_redshift_from_Rz,
-            "kwargs": {"N": N_tot, "R_z": R_SFR, "z_max": 10, "p_cosmology": p_cosmology},
+            "kwargs": {"N": N_tot, "R_z": R_SFR, "z_max": 1.0, "p_cosmology": p_cosmology},
             "as": "z",
         }
 
@@ -340,7 +340,7 @@ def generate_snia_lightcurve(redshift = None, x1 = None, c = None, t0 = None, ma
 
     # update the snia.target.core.Target.model instance.
     snia.update_model(**custom_model) #unpacking is IMPORTANT. But I don't think this line does anything since we use from_draw() again
-    new_snia = snia.from_draw(size = N_tot, model = custom_model, zmin = p_cosmology['z_min'], zmax = 10.0, cosmology = None, tstart = tstart, tstop = tstop, rate = p_cosmology["R0"]["SN Ia"].value)
+    new_snia = snia.from_draw(size = N_tot, model = custom_model, zmin = p_cosmology['z_min'], zmax = 1.0, cosmology = None, tstart = tstart, tstop = tstop, rate = p_cosmology["R0"]["SN Ia"].value)
     print('CUSTOM MODEL IS', custom_model)
     # Step 2: get times range for each model new_snia[i]
     phase_start = new_snia.template.get().mintime() #phases should be const
