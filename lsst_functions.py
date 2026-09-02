@@ -402,7 +402,6 @@ def get_total_alerts_from_survey_by_band(snia_param_list = None, opsim = None, N
             "dec": snia_models.data.loc[index, "dec"],
             "detected": is_detected,
             "n_detections": total_detection_points,
-            "lsstu"
 
         })
     detected = pd.DataFrame(detected)
