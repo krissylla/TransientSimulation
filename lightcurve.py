@@ -117,7 +117,7 @@ def sample_redshift_from_Rz(N, R_z, z_max=1.0, p_cosmology=p_cosmology):
     z_edges = np.linspace(p_cosmology["z_min"], z_max + 1e-6, 100000)
     z_grid = 0.5 * (z_edges[:-1] + z_edges[1:])
     shell_volumes = np.diff(cosmo.comoving_volume(z_edges)).to(u.Mpc**3)
-    rates_k = R_z(z_grid) * shell_volumes #multiply by comoving vol of shell
+    rates_k = R_z(z_grid) / (1 + z_grid) * shell_volumes #multiply by comoving vol of shell
 
     p_k = rates_k / np.sum(rates_k)
     redshift_sample = np.random.choice(z_grid, p=p_k, size=N)
@@ -142,6 +142,7 @@ def generate_custom_model(redshift=None, x1=None, c=None, t0=None, magabs=None,
     -------
     custom_model: dict, comprising all params to update the snia.target.core.Target.model instance with.
     
+
     """
     custom_model = {}
     if redshift is None:
