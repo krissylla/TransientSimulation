@@ -479,7 +479,7 @@ def get_total_alerts_from_survey_by_band(snia_param_list = None, opsim = None, N
 
     return detected # you need to convert to parquet later.
 
-def add_zbin_column(dataframe, zbin_max = 1.0, zbin_size = 0.2):
+def add_zbin_column(dataframe, zbin_max = 1.0, zbin_size = 0.2, detected_only = True):
     """
     
     Parameters
@@ -493,21 +493,23 @@ def add_zbin_column(dataframe, zbin_max = 1.0, zbin_size = 0.2):
     
     Returns
     -----------
-    detected_models (pandas.DataFrame):
+    selected_models (pandas.DataFrame):
         dataframe with the z_bin column included. This informs each target the redshift bin to be added in for histogram plotting.
     """
 
     if zbin_size < 0.001:
         raise ValueError('Redshift increment is too small! Accepted values are >= 0.001')
-    
-    detected_models = dataframe[dataframe['detected'] == True] # == True is optional
+    if detected_only:
+        selected_models = dataframe[dataframe['detected'] == True] # == True is optional
     # params = ['z', 'x1', 'c', 't0', 'magabs', 'magobs', 'ra', 'dec']
+    else:
+        selected_models = dataframe.copy()
     z_bins = np.arange(0, zbin_max + 0.001, zbin_size)
-    detected_models["z_bin"] = pd.cut(detected_models["z"],bins=z_bins,right=False)
+    selected_models["z_bin"] = pd.cut(selected_models["z"],bins=z_bins,right=False)
 
-    return detected_models #with one additional column
+    return selected_models #with one additional column
 
-def get_nsources_nalerts_per_zbin(detected_models):
+def get_nsources_nalerts_per_zbin(selected_models):
 
     """
     With the dataframe of only all detected SNIa models.
@@ -521,11 +523,11 @@ def get_nsources_nalerts_per_zbin(detected_models):
         total number of alerts expected over entire lsst observation per redshift bin
     """
 
-    if 'z_bin' not in detected_models.columns:
+    if 'z_bin' not in selected_models.columns:
         raise AttributeError('"z_bin" column missing from dataframe! See add_zbin_column()')
-    detected_sources = detected_models[detected_models["detected"]]
-    n_sources = (detected_sources.groupby("z_bin", observed=True).size())
-    n_alerts = (detected_sources.groupby("z_bin", observed=True)["n_detections"].sum())
+    # detected_sources = selected_models[selected_models["detected"]]
+    n_sources = (selected_models.groupby("z_bin", observed=True).size())
+    n_alerts = (selected_models.groupby("z_bin", observed=True)["n_detections"].sum())
     return n_sources, n_alerts
 
 

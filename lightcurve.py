@@ -11,8 +11,11 @@ from plotting_functions import plot_population
 from random_population import generate_random_transients
 from skysurvey.tools.utils import random_radec
 
+
 import astropy.units as u
 from astropy.time import Time
+import astropy.cosmology as acosmo
+
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
@@ -35,6 +38,10 @@ p_cosmology = {
         'KN': 59.3 * u.Gpc ** -3 * u.yr ** -1, #BTS ZTF, upper limit
     }
 }
+
+cosmo = acosmo.LambdaCDM(H0=p_cosmology['h0']* u.km / u.s / u.Mpc, 
+                         Om0=p_cosmology['omega_M'],
+                        Ode0=p_cosmology['omega_L'])
 
 #generate_random_transients give dict of z, zmax, ra, dec, timewindow
 
@@ -105,8 +112,12 @@ def sample_redshift_from_Rz(N, R_z, z_max=1.0, p_cosmology=p_cosmology):
     p_cosmology: dict, cosmological parameters used for integration. We just take z_min from this
     
     '''
-    z_grid = np.linspace(p_cosmology['z_min'], z_max, 100000)
-    rates_k = R_z(z_grid)
+    
+    # z_grid = np.linspace(p_cosmology['z_min'], z_max, 100000)
+    z_edges = np.linspace(p_cosmology["z_min"], z_max + 1e-6, 100000)
+    z_grid = 0.5 * (z_edges[:-1] + z_edges[1:])
+    shell_volumes = np.diff(cosmo.comoving_volume(z_edges)).to(u.Mpc**3)
+    rates_k = R_z(z_grid) * shell_volumes #multiply by comoving vol of shell
 
     p_k = rates_k / np.sum(rates_k)
     redshift_sample = np.random.choice(z_grid, p=p_k, size=N)
