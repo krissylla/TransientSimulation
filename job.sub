@@ -12,6 +12,6 @@ Error  = /cephfs/users/gohdenze/TransientSimulation/output/err_$(Cluster)_$(Proc
 should_transfer_files = no
 
 # request 2GB RAM -> i changed to 8
-request_memory = 16G
+request_memory = 32G
 
 queue 226
