@@ -20,9 +20,18 @@ Split the 50 million SNIa into diff batches, then merge
 With ArgParse, you can input arguments. Very useful for flexibility e.g. calling N_tot anytime
 Executable should be your path to python3.12
 
-We use condor_submit.
+We use condor_submit to submit jobs to the HTCondor
+
+Some useful commands:
 condor_q to check status.
 
+To copy data from ssh into (ideally, both dirs should have the same folder names for the same run)
 inside bash terminal (WSL home), use:
 scp gohdenze@transfer.zeuthen.desy.de:/cephfs/users/gohdenze/TransientSimulation/resu
 lts/* .
+
+For a running job: condor_q 17879120 -af JobId JobStatus EnteredCurrentStatus \
+    JobStartDate RemoteWallClockTime MemoryUsage ResidentSetSize RequestMemory
+
+For a completed job: Check time elapsed and memory
+condor_history 17879120 -af JobId RemoteWallClockTime MemoryUsage ResidentSetSize RequestMemory

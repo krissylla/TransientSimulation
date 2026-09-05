@@ -9,4 +9,4 @@ results_4: N_tot = 11299884 from 1*u.yr + 100*u.d and z < 1  --batch_size 50000
 
 results_4_again: N_tot = 11299884, from same but with /1+z_grid added in sample_redshift_from_Rz
 
-results_5: full N_tot = 91139849
+results_5: full N_tot = 91139849, --batch_size 200000, request_memory = 32G queue 456
