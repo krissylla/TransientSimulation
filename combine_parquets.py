@@ -7,10 +7,10 @@ import pyarrow.parquet as pq
 # Paths
 # ------------------------------------------------------------
 
-input_dir = Path(
-    "/cephfs/users/gohdenze/TransientSimulation/results_5"
-)
+from pathlib import Path
 
+project_dir = Path(__file__).resolve().parent
+input_dir = project_dir / "results_5"
 output_file = input_dir / "all_sources.parquet"
 
 
