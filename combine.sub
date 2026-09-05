@@ -1,0 +1,18 @@
+universe = vanilla
+
+Executable = /cephfs/users/gohdenze/micromamba/envs/TransientLightcurves/bin/python
+
+initialdir = /cephfs/users/gohdenze/TransientSimulation
+
+Arguments = combine_parquets.py
+
+Log    = /cephfs/users/gohdenze/TransientSimulation/LOGS/combine_$(Cluster).log
+Output = /cephfs/users/gohdenze/TransientSimulation/output/combine_$(Cluster).out
+Error  = /cephfs/users/gohdenze/TransientSimulation/output/combine_$(Cluster).err
+
+should_transfer_files = no
+
+request_cpus = 1
+request_memory = 16G
+
+queue 1
