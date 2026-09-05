@@ -248,7 +248,7 @@ def generate_ordered_parameter_list(redshift=None, x1=None, c=None, t0=None, mag
 
     return [redshift, x1, c, t0, magabs, ra, dec]
 
-def plot_lightcurve(lightcurve_data, times=None, bands=None, in_mag=False, verbose = False):
+def plot_lightcurve(lightcurve_data, observed_data = None, times=None, bands=None, in_mag=False, plot_limits = False, sverbose = False):
 
     fig, ax = plt.subplots(figsize=(6, 4))
     params = lightcurve_data["params"]
@@ -272,27 +272,84 @@ def plot_lightcurve(lightcurve_data, times=None, bands=None, in_mag=False, verbo
             color=limit_mag_dict[band]["color"],
         )
 
-    if in_mag:
-        for band in bands:
-            if band in limit_mag_dict:
-                ax.axhline(
-                    limit_mag_dict[band]["mag"],
-                    color=limit_mag_dict[band]["color"],
-                    linestyle="--",
-                    label=f"{band} limit",
-                )
-        ax.invert_yaxis()
+    if plot_limits:
+        if in_mag:
+            for band in bands:
+                if band in limit_mag_dict:
+                    ax.axhline(
+                        limit_mag_dict[band]["mag"],
+                        color=limit_mag_dict[band]["color"],
+                        linestyle="--",
+                        label=f"{band} limit",
+                    )
+            ax.invert_yaxis()
 
-    else:
+        else:
+            for band in bands:
+                if band in limit_mag_dict:
+                    ax.axhline(
+                        limit_mag_dict[band]["flux"],
+                        color=limit_mag_dict[band]["color"],
+                        linestyle="--",
+                        label=f"{band} limit",
+                    )
+    ###
+    if observed_data is not None:
+
         for band in bands:
-            if band in limit_mag_dict:
-                ax.axhline(
-                    limit_mag_dict[band]["flux"],
-                    color=limit_mag_dict[band]["color"],
-                    linestyle="--",
-                    label=f"{band} limit",
+
+            obs_band = observed_data[
+                observed_data["band"] == band
+            ]
+
+            if len(obs_band) == 0:
+                continue
+
+            # Convert observations to requested zero point
+            coef = 10 ** (
+                -(obs_band["zp"].to_numpy() - 30) / 2.5
+            )
+
+            flux = obs_band["flux"].to_numpy() * coef
+            fluxerr = obs_band["fluxerr"].to_numpy() * coef
+
+            obs_times = obs_band["mjd"].to_numpy()
+
+            if in_mag:
+
+                # Only positive fluxes can be converted to magnitudes
+                valid = flux > 0
+
+                mags = 30 - 2.5 * np.log10(flux[valid])
+
+                magerr = (
+                    2.5 / np.log(10)
+                    * fluxerr[valid]
+                    / flux[valid]
                 )
 
+                ax.errorbar(
+                    obs_times[valid],
+                    mags,
+                    yerr=magerr,
+                    fmt="o",
+                    color=limit_mag_dict[band]["color"],
+                    markersize=4,
+                    capsize=2,
+                )
+
+            else:
+
+                ax.errorbar(
+                    obs_times,
+                    flux,
+                    yerr=fluxerr,
+                    fmt="o",
+                    color=limit_mag_dict[band]["color"],
+                    markersize=4,
+                    capsize=2,
+                )
+    ###
     ax.set_xlabel("MJD")
     ax.set_ylabel("Magnitude" if in_mag else "Flux (phot/s/cm²)")
     ax.set_title(
@@ -304,7 +361,7 @@ def plot_lightcurve(lightcurve_data, times=None, bands=None, in_mag=False, verbo
     
     ax.legend()
 
-    plt.show()
+    return fig
 
 
 
