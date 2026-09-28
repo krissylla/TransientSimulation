@@ -1,4 +1,7 @@
 # This script is for the full survey of 91_139_849 sources
+# To run, simply type in the terminal:
+# >>> python aggregate.py
+# I used GPT for this.
 
 from pathlib import Path
 import numpy as np
@@ -9,8 +12,8 @@ import pandas as pd
 # ============================================================
 
 project_dir = Path(__file__).resolve().parent
-input_dir = project_dir / "results_5"
-output_file = project_dir / "aggregated_results_with_bands.npz"
+input_dir = project_dir / "results_5" #set accordingly
+output_file = project_dir / "aggregated_results_with_bands.npz" #includes per-band data
 
 # ============================================================
 # Configuration

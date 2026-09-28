@@ -1,3 +1,6 @@
+# Some notes about the jobs I sent. I don't know how useful this will be, but if you want to view my 10 year simulation log, you can refer to results_5
+# To only be pushed to github if necessary.
+
 for results to results_3:
 
 results  : N_tot = 5646906
@@ -9,4 +12,8 @@ results_4: N_tot = 11299884 from 1*u.yr + 100*u.d and z < 1  --batch_size 50000
 
 results_4_again: N_tot = 11299884, from same but with /1+z_grid added in sample_redshift_from_Rz
 
-results_5: full N_tot = 91139849, --batch_size 200000, request_memory = 32G queue 456
+results_5: full N_tot = 91139849, --batch_size 200000, request_memory = 32G queue 456 (job id 17879160.0-455)
+
+# for 10 year:
+tmin_lsst = 61208.20243056
+tmax_lsst = 64859.44531250

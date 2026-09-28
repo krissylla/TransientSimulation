@@ -1,18 +1,21 @@
+# This python script combines all the parquets that you created 
+# This script was entirely written with ChatGPT.
+# Use the combine.sub to run this script in the cluster for your given set of parquets.
+
 from pathlib import Path
 import pyarrow as pa
 import pyarrow.parquet as pq
 
 
 # ------------------------------------------------------------
-# Paths
+# Paths (change input_dir and output_file accordingly)
 # ------------------------------------------------------------
 
 from pathlib import Path
 
 project_dir = Path(__file__).resolve().parent
-input_dir = project_dir / "results_5"
+input_dir = project_dir / "results_5" #change accordingly
 output_file = input_dir / "all_sources.parquet"
-
 
 # ------------------------------------------------------------
 # Find input parquet files

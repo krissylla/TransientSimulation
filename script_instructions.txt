@@ -1,21 +1,31 @@
-31 August 2026: Instructions.
+"""
+31 August 2026
+--------------
+Created this file which details
+Instructions for submitting job files:
+
+"""
+Key scripts to run in terminal:
+    1. job.sub (runs job.py which includes all the functions) --> produces parquets of all the batches
+    2. combine.sub (runs combine_parquets.py which combines all the batches into one big parquet)
+    3. aggregate.py (which "flattens" the large parquet into only some key information)
+
 Sources:
     - https://dv-zeuthen.desy.de/documentation/batch
     - Refer to section on "Job Submission" and "Job Monitoring"
 
 31 Aug 14h00: Installed a copy of TransientLightcurves environment into the ssh
-
 Make sure you git push changes into the TransientLightcurves environement each time.
 
 Open new terminal
-enter ssh with: ssh gohdenze@warp.zeuthen.desy.de
-- you will be prompted to type in your password and Output
+enter ssh with: ssh [username]@warp.zeuthen.desy.de
+- you will be prompted to type in your password and 2FA
 
 The code you had been working on exists inside the WSL TransientSimulation; not in the remote cluster directory.
 Hence, you need to git push changes
 
 Consolidate everything into a python script, because you need it to work with just one when you submit a job
-Split the 50 million SNIa into diff batches, then merge
+Split the 91 million SNIa into diff batches, then merge
     You would need to automate the naming of the diff scripts std-out and std-err
 With ArgParse, you can input arguments. Very useful for flexibility e.g. calling N_tot anytime
 Executable should be your path to python3.12
@@ -23,15 +33,24 @@ Executable should be your path to python3.12
 We use condor_submit to submit jobs to the HTCondor
 
 Some useful commands:
-condor_q to check status.
+    condor_q to check status.
 
 To copy data from ssh into (ideally, both dirs should have the same folder names for the same run)
 inside bash terminal (WSL home), use:
-scp gohdenze@transfer.zeuthen.desy.de:/cephfs/users/gohdenze/TransientSimulation/resu
-lts/* .
+    scp [username]@transfer.zeuthen.desy.de:/cephfs/users/[username]/TransientSimulation/resu
+    lts/* .
 
 For a running job: condor_q 17879120 -af JobId JobStatus EnteredCurrentStatus \
     JobStartDate RemoteWallClockTime MemoryUsage ResidentSetSize RequestMemory
 
 For a completed job: Check time elapsed and memory
-condor_history 17879120 -af JobId RemoteWallClockTime MemoryUsage ResidentSetSize RequestMemory
+    condor_history 17879120 -af JobId RemoteWallClockTime MemoryUsage ResidentSetSize RequestMemory
+
+Once the job for job.sub generates all the parquets in the output_dir of your choice,
+    Run combine.py to combine the huge parquet. If you are working on only a small dataset (<few hundred MB),
+        you can just directly analyse them in a jupyter notebook (with data of every single SNIa inside)
+    If you want to extract key global data from a large file (~GB range), you can just type
+        >>> python aggregate.py
+        in the terminal to save specific information in each redshift bin.
+        You will lose all information about individual targets.
+        For the given computational power of my device, this is the only method.

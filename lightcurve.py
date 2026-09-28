@@ -62,21 +62,47 @@ snia_lightcurve_params = ["redshift", "x1", "c", "t0", "magabs", "ra", "dec"]
 lsst_colors = ["tab:purple", "tab:green", "tab:orange", "tab:red", "tab:brown", "0.5"]
 
 def fixed_param(size, value = None):
+    """ Fix the parameter value to be used in the generated Transient model.
+    
+    Parameters
+    ----------
+    size : int
+        Number of targets (equivalent to N_tot)
+    value : int, float
+        A flag used to print the columns to the console (default is False)
+
+    Returns
+    -------
+    ndarray:
+        an array of length (size), each with a given value.
+    
+    Raises
+    ------
+        ValueError: if value is None
+
+    See Also
+    --------
+    :func:`fixed_radec` : Returns two separate arrays, one for ra and one for dec
+
     """
-    Fix the parameter value to be used in the generated Transient model.
-    """
+
     if value is None:
         raise ValueError("Input value required")
     return np.full(size, value)
 
 def fixed_radec(size, ra = None, dec = None):
-    """
-    Specificially for 'ra' and 'dec': generate list ['ra', 'dec']
+    """ Specificially for 'ra' and 'dec': generate list ['ra', 'dec'].
+    The function is essentially identical to fixed_param. Refer to its documentation.
+
+    See Also
+    --------
+    :func:`fixed_param` : The identical function, but for other other params that are not radec
     """
     if ra is None:
         raise ValueError("Input ra required")
     if dec is None:
         raise ValueError("Input dec required")
+    
     return np.full(size, ra), np.full(size, dec)
 
 # lsst in skysurvey uses zp 30
@@ -87,6 +113,38 @@ def mag_to_flux(mag, zp=30):
     return 10**(-0.4*(mag-zp))
 
 def get_valid_bands(model, redshift, bands, verbose = False):
+    """ This function is not used because DataSet.get_ndetections() is similar.
+    
+    It can be useful if you want to distiguish sources that are not detected because:
+    - outside of all six filter bandwidths due to lightcurve being redshifted too much (around ~1.0)
+    - too faint to exceed 5 sigma detection limit.
+    Hence, if using this function, when you write a function that assigns detectability to each band:
+    You can initialise a list where all filters are initialised at -1,
+    and after analysing the detectability, you might get, for example:
+    For a given source:
+        e.g. {'lsstu': -1, 'lsstg': 0, 'lsstr': 1, 'lssti': 1, 'lsstz': 0, 'lssty': 0}
+        where -1 is invalid bands / undefined detection, 0 is not detectable, and 1 is detected.
+
+    The salt2 model simulates lightcurves from 2000 to 9200 \AA, so after computing the redshifted wavelengths,
+    this function checks if a SNIa lightcurve falls within the bandwidth of each LSST filter.
+
+    Parameters
+    ----------
+    model : `sncosmo.models.Model`
+        Cosmology model used. (Default is sncosmo_model)
+    redshift: int, float
+        Redshift of target
+    bands: list of strings
+        e.g. ['lsstr', 'lssti']. You can use `from lightcurve import lsst_bands`
+    verbose : int, float
+        A flag used to print the columns to the console (default is False)
+
+    Returns
+    -------
+    list:
+        List of valid bands
+
+    """
 
     valid_bands = []
     for band in bands:
@@ -104,12 +162,17 @@ def get_valid_bands(model, redshift, bands, verbose = False):
 # Cris' code --> to replace the default .draw_redshift()
 def sample_redshift_from_Rz(N, R_z, z_max=1.0, p_cosmology=p_cosmology):
     '''
-    Params
-    ------
-    N: int, total number of redshifts to sample 
-    R_z: func, volumetric rate evolution  function that takes as arguments R_z(z, R0). since we are normalizing the distirbution, R0 can be set to 1. 
-    z_max: int, maximum redshift to sample from. z_mibn is defined in the parameter dictionary p_cosmology
-    p_cosmology: dict, cosmological parameters used for integration. We just take z_min from this
+    Parameters
+    ----------
+    N: int
+        Total number of redshifts to sample 
+    R_z: func
+        Volumetric rate evolution function that takes as arguments R_z(z, R0).
+        Since we are normalizing the distirbution to the nearby universe, R0 can be set to 1. 
+    z_max: int
+        Maximum redshift to sample from. z_mibn is defined in the parameter dictionary p_cosmology
+    p_cosmology: dict
+        Cosmological parameters used for integration. We just take z_min from this
     
     '''
     
@@ -126,22 +189,31 @@ def sample_redshift_from_Rz(N, R_z, z_max=1.0, p_cosmology=p_cosmology):
 def generate_custom_model(redshift=None, x1=None, c=None, t0=None, magabs=None,
                           ra=None, dec=None, N_tot=1):
 
-    # if custom_model.keys() not in snia_lightcurve_params...?
-    
-    """
-    Generate dictionary of custom model.
-    This function begins with initialising a new default redshift selection; sample_redshift_from_Rz()
-    This can be replaced with a fixed_param() function if so desired.
+    """Generate dictionary of custom model.
 
-    Params:
+    This function is created to be an in-built method in generate_snia_lightcurve
+
+    We want our generated SNIa population to be able to follow certain distributions.
+    This function customises the selection function for each parameter.
+    We initialising a new default redshift selection; sample_redshift_from_Rz(). Note: skysurvey uses its own selection function
+
+    Parameters
     ------
-    Lightcurve params [redshift, x1, c, t0, magabs, ra, dec]
-    N_tot: int, number of targets to generate. Default: 1.
+    SNIa lightcurve params [redshift, x1, c, t0, magabs, ra, dec]
 
-    Returns:
+    N_tot: int
+        number of targets to generate. (Default is 1)2
+
+    Returns
     -------
-    custom_model: dict, comprising all params to update the snia.target.core.Target.model instance with.
+    custom_model: dict
+        Comprising all params to update the snia.target.core.Target.model instance with.
     
+    See Also
+    ---------
+    :func: generate_snia_dict()
+    :func: generate_ordered_parameter_dict()
+    :func: generate_snia_lightcurve()
 
     """
     custom_model = {}
@@ -189,18 +261,31 @@ def generate_custom_model(redshift=None, x1=None, c=None, t0=None, magabs=None,
 
 def generate_snia_dict(redshift=None, x1=None, c=None, t0=None, magabs=None,
                           ra=None, dec=None):
-    """
-    Makes a dict.
+    """Main function 1 of 3 in generating your custom SNIa population.
+    Makes a dict of SNIa parameters to simulate.
+
     Unlike Cris' generate_random_transients() function, this function lets you build a dict.
     You do not need to fix every parameter. All unfixed params will be randomised.
 
-    02 Sep 2026: ADD ra_range and dec_range as input parameters.
+    IMPORTANT: It would be useful to add ra_range and dec_range as input parameters.
     ------------------------------------
-    Inputs:
-        - SNIa lightcurve params (float?)
     
-    Returns:
-        - a dictionary with all the input parameter names and their values (dictionary)
+    Parameters
+    -----------
+    SNIa lightcurve params [redshift, x1, c, t0, magabs, ra, dec]
+    
+    Returns
+    -------
+    snia_dict: dict
+        A dictionary with all the input parameter names and their values (dictionary)
+
+    See Also
+    ---------
+    :func: generate_custom_model()
+    :func: generate_ordered_parameter_dict()
+    :func: generate_snia_lightcurve()
+    
+
     """
 
     snia_dict = {}
@@ -218,12 +303,13 @@ def generate_snia_dict(redshift=None, x1=None, c=None, t0=None, magabs=None,
  
     return snia_dict
     
-    
 
 def generate_ordered_parameter_list(redshift=None, x1=None, c=None, t0=None, magabs=None,
                                     ra=None, dec=None, input_dict=False, params=None):
-    """
-    Return a parameter list in the order expected by generate_snia_lightcurve().
+    """Main function 2 of 3 in generating your custom SNIa population.
+    
+    Reorders the parameters in the parameter dict to a specified order, and then
+    returns a parameter list in the order expected by generate_snia_lightcurve().
 
     The returned list can be unpacked into generate_snia_lightcurve() as:
         params = generate_ordered_parameter_list(...)
@@ -232,6 +318,13 @@ def generate_ordered_parameter_list(redshift=None, x1=None, c=None, t0=None, mag
     When input_dict=True, the `params` dictionary is used to fill values.
     Any None values are preserved so the lightcurve builder can randomize
     the corresponding parameters.
+
+    See Also
+    ---------
+    :func: generate_custom_model()
+    :func: generate_snia_dict()
+    :func: generate_snia_lightcurve()
+
     """
     if input_dict:
         if params is None:
@@ -248,8 +341,41 @@ def generate_ordered_parameter_list(redshift=None, x1=None, c=None, t0=None, mag
 
     return [redshift, x1, c, t0, magabs, ra, dec]
 
-def plot_lightcurve(lightcurve_data, observed_data = None, times=None, bands=None, in_mag=False, plot_limits = False, sverbose = False):
+def plot_lightcurve(lightcurve_data, observed_data = None, times=None, bands=None, in_mag=False, plot_limits = False, verbose = False):
+    """ Plots lightcurve in different bands, optionally with observed data from lsst observations.
 
+    Parameters
+    ----------
+    lightcurve_data: nested dict
+        comprises 'times' and 'lc_by_band' -- which is maded up of a dict of 'band' and mag/flux values 
+    observed_data : lsst observations Dataset(), optional
+        This is what you get from dset.from_targets_and_survey(). It uses the dataset columns.
+    times: list or arraylike
+        SNIa times
+    bands: list of str
+        Bands you want to plot.
+    in_mag: bool
+        Whether to plot in magnitude or fluxes. Recommended to use False.
+    plot_limits: bool
+        Whether to plot the theoretical mag or flux needed from the VRO documentation (which is what our limit_mag_dict used)
+        Recommended to keep as False as the results are not particularly qualitative.
+    verbose: bool
+    
+    Returns
+    --------
+    fig: matplotlib.figure.Figure() object
+        Plot of lightcurve (optionally with observed datapoints) in different bands
+
+    Examples:
+    ---------
+    model = data_models[8]
+    plot_lightcurve(model, times=model['times'], in_mag = False)
+    
+    or 
+
+    fig = plot_lightcurve(data_models[max_index], observed_data = dset.get_target_lightcurve(index=max_index), times = data_models[max_index]['times'], plot_limits = False)
+    
+    """
     fig, ax = plt.subplots(figsize=(6, 4))
     params = lightcurve_data["params"]
     lc_by_band = lightcurve_data["lc_by_band"]
@@ -368,7 +494,11 @@ def plot_lightcurve(lightcurve_data, observed_data = None, times=None, bands=Non
 def generate_snia_lightcurve(redshift = None, x1 = None, c = None, t0 = None, magabs = None, ra = None, dec = None,
                               bands = None, p = p_cosmology, tstart = None, tstop = None, N_tot = 1, zp = 30, zpsys = 'ab', plot_curve = False, return_values = False,
                               in_mag = False, return_models = False, verbose = False):
-    """
+    """Main function 3 of 3 in generating your custom SNIa population.
+
+    This is our golden function to generate the population. I call it the lightcurve since we are analysing
+    detectability of each source from their expected lightcurve.
+
     Generate lightcurve for a given input redshift.
 
     Every other parameter (x1, c, t0, magabs (--> magobs), and radec are randomised.
@@ -377,11 +507,46 @@ def generate_snia_lightcurve(redshift = None, x1 = None, c = None, t0 = None, ma
     All parameters are generated independently, following which z is manually set
     Code to be modified in the future for more than one event.
 
-    N_tot: Number of snia targets to simulate. Use N_tot = 1 for now AND if all params are fixed.
-    plot_curve: Plots the lightcurve using skysurvey.show_lightcurve()
-    zp: zero-point magnitude (scales the magnitude to zero. 30 for LSST)
-    return_models: Returns the snia.target.core.Target instance. Recommended to use False if you have already generated the model.
-    return_values: Returns y values (flux or mag) as a 2D array, with each layer as different filters
+    Parameters
+    ----------
+    SNIa lightcurve parameters
+        To be unpacked from the SNIa parameter dict
+    N_tot: int
+        Number of snia targets to simulate (default is 1)
+    plot_curve: bool
+        Plots the lightcurve using skysurvey.show_lightcurve()
+    zp: zero-point magnitude
+        (scales the magnitude to zero. (For LSST in skysurvey, default is 30)
+    return_models: bool
+        If True, returns the snia.target.core.Target instance. Recommended to use False if you have already generated the model.
+    return_values: bool
+        If True, returns y values (flux or mag) as a 2D array, with each layer as different filters
+
+    Returns
+    -------
+    snia_targets: skysurvey.target.snia.SNeIa
+        Collection of all targets.
+
+    lc_data_all_targets: dict
+        lightcurve data dict ('times' and 'lc_by_band' and 'params') for each index. Very large file, so best to call using an index.
+        For given index, you can do:
+            lc_data_all_targets[index]['times']
+            lc_data_all_targets[index]['lc_by_band']['lsstu']
+            lc_data_all_targets[index][s'params']
+        In the project, I named lc_data_all_targets as data_models
+
+
+    Raises
+    ------
+    ValueError: If redshift is empty or N_tot takes a non-integer value
+    ...
+
+    Examples
+    --------
+    Recommeded to use snia_models, data_models = generate_snia_lightcurve(...)
+    You can then see each SNIa target data using.
+        snia_models.data.loc[0] or snia_models.data.iloc[0]
+        data_models[0]
     
     """
     if redshift is not None:
@@ -484,7 +649,18 @@ def generate_snia_lightcurve(redshift = None, x1 = None, c = None, t0 = None, ma
 
 
 def make_visibility_row(lc_by_band, limit_mag_dict = limit_mag_dict, in_mag = True):
-    #initialise every band as -1 meaning not available.
+    """This function is not used.
+    
+    You can use this if you want a one-row series to show visiblity for one target
+    e.g. 0, 0, 0, 1, 1, 1
+
+    Returns
+    -------
+    row: dict
+        Can be converted into pandas Series to stack
+
+    """
+    #if preferred, initialise every band as -1 meaning detectability is invalid due to redshifted lighcurve outside of a given band.
     #i choose 0 for now to prevent confusion
     row = {band: 0 for band in limit_mag_dict}
     
@@ -502,15 +678,19 @@ def make_visibility_row(lc_by_band, limit_mag_dict = limit_mag_dict, in_mag = Tr
 
 
 def determine_visibility(lightcurves_data, return_dict = False, in_mag = True):
-    """
+    """ This function is not used.
+
     This assumes that you are using the theoretical lc of 500 datapoints.
 
-    Inputs:
-    ----
-        - lightcurves_data: nested dict, 
+    Parameters
+    ----------
+    lightcurves_data: nested dict
+        lightcurve data generated from generate_snia_lightcurve()
 
-    Returns:
-        pd.Dataframe (default). if return_dict == True, dictionary
+    Returns
+    -------
+        if return_dict == False: pd.Dataframe (default)
+        if return_dict == True: dict
     """
 
     lc_by_band = lightcurves_data["lc_by_band"]

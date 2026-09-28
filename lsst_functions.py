@@ -1,7 +1,6 @@
 from filter_limits import lsst_bands, limit_mag_dict
 # from filter_limits import limit_flux_dict
 
-
 #we will build the lightcurve generating functions here
 import sys
 import os
@@ -23,13 +22,34 @@ import matplotlib.dates as mdates
 
 from lightcurve import get_valid_bands, generate_snia_lightcurve, determine_visibility
 
-opsim_path = "baseline_v5.3.5_10yrs.db"
+opsim_path = "baseline_v5.3.5_10yrs.db" #there are new versions released since July 2026
+tmin_lsst = 61208.20243056 #useful value.MJD at start of LSST.
 
 def visualize_nights(opsim_path = opsim_path, start_night = None, stop_night = None, vmin=0,
             vmax_quantile=0.95,
             cmap="coolwarm"):
-    """
-    Visualise individual nights. Creates n-row subplots in one column.
+    """ Visualise individual nights. Creates n-row subplots in one column.
+    This function does not let you select non-consecutive nights to show.
+
+    Parameters
+    ----------
+    opsim_path
+        Survey observation simulation db file
+    start_night: int, optional
+        start night of observations
+    stop_night: int, optional
+        stop night of observations
+    vmin: float or None, optional
+        minimum coverage to show. I don't know if this is minimum number of observations or minimum percentage
+    vmax_quantile:
+        maximum quantile of coverage to show. (default is 0.95 to allow for easier visualisation due to presence of DDFs)
+    cmap: matplotlib.colors.Colormap
+        default is "coolwarm"
+
+    Returns
+    -------
+    None
+        Plots observations for each night from (start_night, stop_night - 1)
 
     """
     if start_night is None:
@@ -65,35 +85,63 @@ def visualize_nights(opsim_path = opsim_path, start_night = None, stop_night = N
 
 
 def set_selection_criteria(total_points, n_filters, min_points_per_filter):
-    """
-    Create a dict of selection criteria of a given source which is flexible.
+    """Create a dict of selection criteria of a given source which is flexible.
     We have our own estimated set of selection criteria.
     
-        - total_points: minimum total number of n_detections neede to be visible
-        - n_filters: minimum number of filters the source needs to be visible in
-        - min_pts_per_filter: the first n_filtersneed to each have > min_pts_per_filter.
-                            If True, extra filters with less are counted as visible too
+    Parameters
+    ----------
+    total_points: int
+        minimum total number of n_detections neede to be visible
+    n_filters: int
+        minimum number of filters the source needs to be visible in
+    min_pts_per_filter: int
+        the first n_filtersneed to each have > min_pts_per_filter.
+        If True, extra filters with less are counted as visible too
+    
+    Returns
+    -------
+    dict
+        Dictionary with each input argument as the key
 
-        e.g. you need minimum 10 points, and in 3 filters you need at least 3 points --> put (10, 3, 3)
+    Examples
+    --------
+    If you need minimum 10 points, and in 3 filters you need at least 3 points --> put (10, 3, 3)
+
+    See Also
+    --------
+    :func: exist_in_multiband_check(): Uses set_selection_criteria to determine if a source is confirmed 
     """
     for value in [total_points,n_filters,min_points_per_filter]:
         if value is not None and not isinstance(value, int):
             raise TypeError("Input parameters must be either None or int.")
 
-    return {"total_points": total_points,"n_filters": n_filters,"min_points_per_filter": min_points_per_filter,}
+    return {"total_points": total_points,"n_filters": n_filters,"min_points_per_filter": min_points_per_filter}
     
 
 # functions for total sources detected
 
 def exist_in_multiband_check(indiv_data, selection_criteria = None):
-    """
-    We only say a source is detected if there is minimum n_detections (from .get_ndetection)
-    and two filters
-    Input:
-        - indiv_data (pd.Series): dataset.get_data(index=index,detection=True).loc[index] for chosen index
-        - selection_criteria (dict): contains total_pts, min_filters, min_pts_per_filter 
-    """
+    """We only say a source is detected if there is minimum n_detections (from .get_ndetection)
+    and two filters. Returns True or False for one target.
 
+    Parameters
+    ----------
+    indiv_data : pandas.Series
+        from dataset.get_data(index=index,detection=True).loc[index] for chosen index
+        This is a series of total detections for a given index in the DataSet.
+    selection_criteria : dict or None
+        contains total_pts, min_filters, min_pts_per_filter. From set_selection_criteria()
+    
+    Returns
+    -------
+    bool
+        Whether the SNIa lightcurve "exists" in multiple bands i.e. passes selection criteria
+
+    See Also
+    --------
+    :func: set_selection_criteria(): Function used to build this.
+
+    """
     if selection_criteria is None:
         return True
 
@@ -124,13 +172,20 @@ def exist_in_multiband_check(indiv_data, selection_criteria = None):
 
 
 def five_sigma_detection_multiband(dataset, targets, index=0, selection_criteria = None):
-    """
-    Not splitting by band. As long as it passes the selection criteria (with exist_in_multiband_check)
-    valid_bands is probably not needed due to .get_ndetections() being used, but good to be safe.
+    """ From a dataset, returns detectability a specific target index in a DataSet
+
+    This function does not split the detections by band.
+    As long as it passes the selection criteria (with exist_in_multiband_check)
+    get_valid_bands() is probably not needed due to DataSet.get_ndetections() being used, but good to keep as a 
+    commented-out line if one wants to build on it to make a more detailed detectibility dataframe with rows of -1, 0, 1... etc
+
+    Returns
+    -------
+    bool
     """
     z = targets.data.loc[index, "z"]
 
-    valid_bands = get_valid_bands(model=targets.template.sncosmo_model,redshift=z,bands=lsst_bands,)
+    # valid_bands = get_valid_bands(model=targets.template.sncosmo_model,redshift=z,bands=lsst_bands,)
  
     detection_rows = dataset.get_data(index=index,detection=True) #auto 5 sigma
 
@@ -149,10 +204,18 @@ def detectability_sources(snia_param_list = None, opsim = None, N_tot = None, re
 
     For a given redshift list, loop through each redshift. Sees if there are any available sources for 
 
-    Input:
-        - snia_param_list (list): parameter listed redshift, x1, c, t0, magabs, ra, dec
-    Output:
-        -theoretical and actual number of sources detected
+    Parameters
+    ----------
+    snia_param_list : list
+        parameter list for a particular target [redshift, x1, c, t0, magabs, ra, dec]
+
+    opsim:
+        Survey observation simulation e.g. lsst = .from_opsim()...
+    
+    Returns
+    -------
+    final_summary: pandas.DataFrame
+        Theoretical and actual detections for every source, including its parameters
     """
     from astropy.time import Time
     
@@ -227,15 +290,120 @@ def detectability_sources(snia_param_list = None, opsim = None, N_tot = None, re
     
     return final_summary
 
+def five_sigma_detection_by_band(dataset, targets, index=0):
+    z = targets.data.loc[index, "z"]
+    valid_bands = get_valid_bands(model=targets.template.sncosmo_model,redshift=z,bands=lsst_bands)
+    # row = {band: -1 if band not in valid_bands else 0 for band in lsst_bands} #initialise row dict as 0
+    row = {band: 0 for band in lsst_bands}
+    detection_rows = dataset.get_data(index=index,detection=True)
 
-def get_detection_summary(dataset, index,selection_criteria=None):
+    for band in valid_bands:
+        band_data = detection_rows[detection_rows["band"] == band]
+        if len(band_data) > 0:
+            row[band] = 1
+
+    return row
+
+def five_sigma_detection_multiband(dataset, targets, index=0, selection_criteria = None):
     """
+    Not splitting by band. As long as it passes the selection criteria (with exist_in_multiband_check)
+    valid_bands is probably not needed due to .get_ndetections() being used, but good to be safe.
+    """
+    z = targets.data.loc[index, "z"]
+
+    valid_bands = get_valid_bands(model=targets.template.sncosmo_model,redshift=z,bands=lsst_bands,)
+    # row = {band: -1 if band not in valid_bands else 0 for band in lsst_bands} #initialise row dict as 0
+
+    detection_rows = dataset.get_data(index=index,detection=True) #auto 5 sigma
+
+    if len(detection_rows) == 0:
+        return False
+
+    indiv_data = detection_rows["band"].value_counts()
+
+    if not exist_in_multiband_check(indiv_data, selection_criteria = selection_criteria):
+        return False
+    
+    return True
+
+def five_sigma_detection_by_band_multiband(dataset, targets, index=0, selection_criteria = None):
+
+    # very first filter will be
+
+    z = targets.data.loc[index, "z"]
+
+    valid_bands = get_valid_bands(model=targets.template.sncosmo_model,redshift=z,bands=lsst_bands,)
+    # row = {band: -1 if band not in valid_bands else 0 for band in lsst_bands} #initialise row dict as 0
+
+    row = {band: 0 for band in lsst_bands}
+    detection_rows = dataset.get_data(index=index,detection=True)
+
+    if len(detection_rows) == 0:
+        return row
+
+    # Count 5-sigma detections per band
+    indiv_data = detection_rows["band"].value_counts()
+
+    if not exist_in_multiband_check(indiv_data, selection_criteria = selection_criteria):
+        return row #all 0s
+    
+    for band in valid_bands:
+        band_data = detection_rows[detection_rows["band"] == band]
+        if len(band_data) > 0:
+            row[band] = 1
+
+    return row
+
+def compare_detection_conditions(dataset,targets,data_models,index=0):
+
+    """ Returns detectability in each conditions
+        1. theoretical
+        2. five_sigma
+        3. five_sigma_multi: five sigma detections but belonging to a confirmed source which passes selection criteria
+
+    Examples
+    --------
+    See skysurvey_prelim.ipynb
+    """
+
+    # we previously had a third condiition (5 sigma + pass theoretical detection, but we know it has problems)
+
+    theoretical = determine_visibility(data_models[index],return_dict=True,in_mag=False)
+    five_sigma = five_sigma_detection_by_band(dataset,targets,index=index)
+    five_sigma_multi = five_sigma_detection_by_band_multiband(dataset,targets,index=index)
+
+    result = pd.DataFrame(
+        [theoretical, five_sigma, five_sigma_multi, ],
+        index =["theoretical","5_sigma", "five_sigma_multi"],)
+
+    result.index.name = "condition"
+    result.insert(0, "target", index)
+
+    return result.reset_index()
+
+
+def get_detection_summary(dataset, index, selection_criteria=None):
+    """ This function does not seem to be used.
+
     Return detection information for one target using a single
     dataset.get_data() call.
     Instead of having to run:
         - five_sigma_detection_multiband()
         - get_number_detections_all_bands or ...get_number_detections_by_band()
         this function combines them.
+
+    Parameters
+    ----------
+    dataset
+        from .from_targets_and_survey()
+    index
+        source target index
+    selection_criteria
+
+    Returns
+    -------
+    row
+
     """
 
     row = {
@@ -268,7 +436,7 @@ def get_total_alerts_from_survey(snia_param_list = None, opsim = None, N_tot = N
     """
     For a given survey input, generate expected alerts/detections.
 
-    ***This is the MAIN script to be run through bash.***
+    ***This is the MAIN script to be run through bash (if you want total across all bands rather than individual bands).***
 
     Parameters
     ----------
@@ -361,11 +529,19 @@ def get_number_detections_by_band(dataset, index=0, selection_criteria = None):
     Split by band. Total number of detected points for a given dataset.
     You will need to divide by N_tot separately later. 
 
-    Input:
+    Parameters
     ---------
-        dataset (skysurvey.target.transient): skysurvey target transient object
-        index (int): index of the target in the dataset
-        selection_criteria (dict): dictionary of selection criteria for detection    
+    dataset: skysurvey.dataset.DataSet
+        skysurvey transient DataSet from .from_targets_and_survey()
+    index : int
+        index of the target in the dataset (default is 0 i.e. the first target in the population)
+    selection_criteria : dict or None
+        dictionary of selection criteria for detection    
+
+    Returns
+    -------
+    row
+        with detections
     """
    
     row = {band: 0 for band in lsst_bands} #initiate
@@ -387,8 +563,7 @@ def get_number_detections_by_band(dataset, index=0, selection_criteria = None):
 
 
 def get_total_alerts_from_survey_by_band(snia_param_list = None, opsim = None, N_tot = None, selection_criteria = set_selection_criteria(total_points=5,n_filters=2,min_points_per_filter=2)):
-    """
-    For a given survey input, generate expected alerts/detections.
+    """ For a given survey input, generate expected alerts/detections.
 
     ***If wanting extra by_band statistics, this is the MAIN script to be run through bash.***
 
@@ -399,8 +574,7 @@ def get_total_alerts_from_survey_by_band(snia_param_list = None, opsim = None, N
         Ignored if `nyears` is given. By default None.
             
     Returns
-    ----------
-
+    -------
     int:
         Total number of alerts expected across all observations of lsst.
 
@@ -412,7 +586,6 @@ def get_total_alerts_from_survey_by_band(snia_param_list = None, opsim = None, N
     which returns
         1. The number of sources detectable per redshift bin
         2. The number of alerts per redshift bin
-
     """
 
     if snia_param_list is None:
@@ -480,21 +653,42 @@ def get_total_alerts_from_survey_by_band(snia_param_list = None, opsim = None, N
     return detected # you need to convert to parquet later.
 
 def add_zbin_column(dataframe, zbin_max = 1.0, zbin_size = 0.2, detected_only = True):
-    """
+    """ Assigns z bin to each source. Refer to population_analysis.ipynb for example.
     
     Parameters
-    -----------
-    detected_df (pandas.DataFrame):
+    ----------
+    detected_df: pandas.DataFrame
         dataframe containing all sourcess and their params + detectability + n_detections.
         It needs to have a column called 'detected' which is True or False
     
-    zbin_max (int or float):
-        maximum range of the redshifts to 
+    zbin_max: int or float
+        maximum range of the redshifts to bin (default is 1.0)
+
+    zbin_size: float
+        redshift binning, but recommended would be 0.05 or 0.01 (default is 0.2)
+
+    detected_only: bool
+        Whether to only keep detected sources in the final output.
     
     Returns
     -----------
     selected_models (pandas.DataFrame):
         dataframe with the z_bin column included. This informs each target the redshift bin to be added in for histogram plotting.
+
+    Notes
+    -----
+    This was used in population_analysis.ipynb
+    Not used in skysurvey_detections, but this was done instead:
+
+    z_bins = np.arange(0, 1.01, 0.1) # set z bins
+    detected["z_bin"] = pd.cut(detected["z"],bins=z_bins,right=False)
+    detected[(detected['detected'] == True) & (detected['n_detections'] < 6)]
+    detected_sources = detected[detected["detected"]]
+    n_sources = (detected_sources.groupby("z_bin", observed=True).size())
+    n_points = (detected_sources.groupby("z_bin", observed=True)["n_detections"].sum())
+
+    This function add_zbin_column can be used, but I have not tested if it does the same.
+
     """
 
     if zbin_size < 0.001:
@@ -511,16 +705,25 @@ def add_zbin_column(dataframe, zbin_max = 1.0, zbin_size = 0.2, detected_only = 
 
 def get_nsources_nalerts_per_zbin(selected_models):
 
-    """
-    With the dataframe of only all detected SNIa models.
+    """ With the dataframe of only all detected SNIa models, calculate N sources and N alerts in each redshift bin
+
+    Parameters
+    ----------
+    selected_models: pandas.DataFrame
+        Dataframe of just detected targets, which is subset of full population dataframe
+        This can be filtered.
 
     Returns
-    -----------
-    n_sources (pandas.Series):
+    -------
+    n_sources: pandas.Series
         total number of detected targets per redshift bin
 
-    n_alerts (pandas.Series):
+    n_alerts: pandas.Series:
         total number of alerts expected over entire lsst observation per redshift bin
+
+    Examples
+    --------
+    See population_analysis.ipynb
     """
 
     if 'z_bin' not in selected_models.columns:
@@ -531,33 +734,27 @@ def get_nsources_nalerts_per_zbin(selected_models):
     return n_sources, n_alerts
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 def get_number_detections_allbands(dataset, targets, index=0, selection_criteria = None):
-    """
-    Combined n_detections across all bands for one target.
+    """Combined n_detections across all bands for one target.
 	This target still needs to pass the selection criterion
+
+    Parameters
+    ----------
+    dataset : skysurvey.dataset.DataSet
+        skysurvey transient DataSet from .from_targets_and_survey()
+    targets :
+        not used
+    index : int
+        index of the target to analyse
+    selection criteria: dict or None
+        obtained from set_selection_criteria()
+
+    Returns
+    -------
+    int
+        length of rows, which corresponds t6o number of detections
+
+    Used in skysurvey_prelim.ipynb
     """
     detection_rows = dataset.get_data(index=index,detection=True)
     indiv_data = detection_rows["band"].value_counts()
@@ -572,6 +769,41 @@ def get_number_detections_allbands(dataset, targets, index=0, selection_criteria
 
 
 def n_detections_sources(snia_param_list = None, opsim = None, N_tot = None, redshift_list = None, selection_criteria = set_selection_criteria(total_points=5,n_filters=2,min_points_per_filter=2)):
+    
+    """ A preliminary function used in skysurvey_prelim.ipynb, close to the final cell.
+
+    Returns detections that belong to confirmed sources and total detections.
+
+    Parameters
+    ----------
+    snia_param_list : list
+        list from generate_snia_dict() and generate_ordered_parameter_list()
+    opsim
+        Survey observation simulation e.g. lsst = .from_opsim()...
+    N_tot: int
+        Total number of sources simulated
+    redshift_list: list
+        used for looping in the preliminary studies (in skysurvey_prelim.ipynb)
+
+    
+    Returns
+    -------
+    total_summary: pandas.DataFrame
+        with columns of parameters, total_results (confirmed detections), and total unfiltered detections
+
+    Examples
+    --------
+    N_tot = 1000
+    redshift_list = [0.15, 0.2, ..., 0.75]
+    detection_summary = n_detections_sources(snia_param_list = snia_param_list, opsim = lsst, N_tot = N_tot, redshift_list = redshift_list)
+    fig, ax = ...
+    ax.plot(detection_summary["z"], detection_summary["n_det"]/N_tot, marker=".", label = 'dets from confirmed sources')
+    ax.plot(detection_summary["z"], detection_summary["n_det_unfiltered"]/N_tot, marker=".", label = 'unfiltered dets')
+
+    
+    """
+    
+    
     from astropy.time import Time
     all_summaries = []
     

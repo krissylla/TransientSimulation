@@ -1,4 +1,5 @@
 lsst_bands = ["lsstu", "lsstg", "lsstr", "lssti", "lsstz", "lssty"]
+# third column is for plotting.
 limit_mag_dict = {
                 "lsstu": {"mag": 23.8, "color": "tab:purple"},
               "lsstg": {"mag": 24.5, "color": "tab:green"},
