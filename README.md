@@ -55,7 +55,15 @@ Some useful links:
  
 * `tripp1998_nicolas2021.py`: Reference script which includes the default sampling functions for magabs (Tripp1998) and the SNIa stretch modelling (NIcolas2021). Copied directly from skysurvey source code.
 
+* `test_parquet.parquet`: pre-computed dataset of 1000 sources observed by LSST in ONE year. Used in `skysurvey_detections.ipynb`.
+
+* `SNParquets/my_test_parquet.parquet`: 10000 sources generated across 1 year + 100*u.d. Used in `skysurvey_prelim.ipynb`.
+
 
 # notebooks that you might have, but not used
 
 * `skysurvey.ipynb`: One of the first scripts used to learn an experiment different skysurvey functions. The key functions and results were transferred into `lightcurve.py`, `lsst_functions.py` and the other jupyter notebooks.
+
+* `skysurvey_make_10yrparquet.ipynb`: You can combine your smaller parquets into a large one here and return it to the folder. I used this to combine my 10 year population of 91 million SNIa together (~3.9 GB). Another way to analyse this large dataset will be to loop through each small parquet (e.g. 200000 SNIa), append data into specific dataframes, close it, and repeat forthe next one, to prevent crashing VSCode.
+
+* `smallparquet.parquet`: Could be an older version of test_parquet.parquet
