@@ -32,5 +32,8 @@ p_cosmology = {
         'SN II': 10.1e4  * u.Gpc ** -3 *   u.yr  ** -1, #BTS ZTF
         'TDE': 8e-7 * u.Mpc **  -3  * u.yr ** -1, #?  sun et al maybe
         'KN': 59.3 * u.Gpc ** -3 * u.yr ** -1, #BTS ZTF, upper limit
-    }
+    },
+    'nu_diff_phi': 1.8e-18, #for E in GeV
+    'nu_diff_E0': 1e5, #GeV
+    'nu_diff_gamma': -2.52
 }
